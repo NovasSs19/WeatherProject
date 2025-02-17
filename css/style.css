@@ -165,43 +165,117 @@ main {
     100% { transform: rotate(360deg); }
 }
 
-/* Camera Container */
-.camera-container {
-    background: var(--card-background);
-    border-radius: 20px;
-    overflow: hidden;
-    margin-bottom: 20px;
-    position: relative;
+/* Camera Styles */
+.camera-section {
+    display: none;
+    width: 100%;
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 20px;
 }
 
-#camera-preview {
+.camera-container {
+    position: relative;
     width: 100%;
+    border-radius: 20px;
+    overflow: hidden;
+    background: rgba(0, 0, 0, 0.1);
+    margin-bottom: 20px;
+}
+
+#camera-feed {
+    width: 100%;
+    height: auto;
     display: block;
-    background: #000;
-    aspect-ratio: 16/9;
+    transform: scaleX(-1);
 }
 
 .capture-button {
     position: absolute;
     bottom: 20px;
-    right: 20px;
-    background: var(--button-color);
-    color: white;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    background: #2196F3;
     border: none;
-    padding: 12px 24px;
-    border-radius: 25px;
+    color: white;
+    font-size: 24px;
     cursor: pointer;
-    font-family: 'Poppins', sans-serif;
-    font-weight: 500;
-    font-size: 1rem;
-    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
     transition: all 0.3s ease;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+    z-index: 10;
 }
 
 .capture-button:hover {
     background: #1976D2;
-    transform: translateY(-1px);
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+    transform: translateX(-50%) scale(1.1);
+}
+
+.photo-gallery {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 15px;
+    padding: 20px;
+    max-height: 300px;
+    overflow-y: auto;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 10px;
+}
+
+.photo-item {
+    position: relative;
+    border-radius: 10px;
+    overflow: hidden;
+    aspect-ratio: 1;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.photo-item img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.photo-overlay {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: rgba(0, 0, 0, 0.5);
+    padding: 8px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.photo-item:hover .photo-overlay {
+    opacity: 1;
+}
+
+.delete-photo {
+    background: #ff4444;
+    color: white;
+    border: none;
+    padding: 4px 8px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 12px;
+}
+
+.photo-time {
+    color: white;
+    font-size: 12px;
+}
+
+.no-photos {
+    text-align: center;
+    color: #B0BEC5;
+    padding: 20px;
+    grid-column: 1 / -1;
 }
 
 /* Photo Gallery */
@@ -555,107 +629,6 @@ main {
     text-align: center;
     padding: 20px;
     color: #B0BEC5;
-}
-
-/* Camera Styles */
-.camera-container {
-    position: relative;
-    width: 100%;
-    max-width: 640px;
-    margin: 20px auto;
-    border-radius: 20px;
-    overflow: hidden;
-    background: rgba(0, 0, 0, 0.1);
-}
-
-#camera-feed {
-    width: 100%;
-    height: auto;
-    transform: scaleX(-1);
-}
-
-.capture-button {
-    position: absolute;
-    bottom: 20px;
-    left: 50%;
-    transform: translateX(-50%);
-    width: 60px;
-    height: 60px;
-    border-radius: 50%;
-    background: #2196F3;
-    border: none;
-    color: white;
-    font-size: 24px;
-    cursor: pointer;
-    transition: all 0.3s ease;
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
-}
-
-.capture-button:hover {
-    background: #1976D2;
-    transform: translateX(-50%) scale(1.1);
-}
-
-.photo-gallery {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-    gap: 15px;
-    padding: 20px;
-    max-height: 300px;
-    overflow-y: auto;
-}
-
-.photo-item {
-    position: relative;
-    border-radius: 10px;
-    overflow: hidden;
-    aspect-ratio: 1;
-}
-
-.photo-item img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-}
-
-.photo-overlay {
-    position: absolute;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    background: rgba(0, 0, 0, 0.5);
-    padding: 8px;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    opacity: 0;
-    transition: opacity 0.3s ease;
-}
-
-.photo-item:hover .photo-overlay {
-    opacity: 1;
-}
-
-.delete-photo {
-    background: #ff4444;
-    color: white;
-    border: none;
-    padding: 4px 8px;
-    border-radius: 4px;
-    cursor: pointer;
-    font-size: 12px;
-}
-
-.photo-time {
-    color: white;
-    font-size: 12px;
-}
-
-.no-photos {
-    text-align: center;
-    color: #B0BEC5;
-    padding: 20px;
-    grid-column: 1 / -1;
 }
 
 /* Responsive Design */
