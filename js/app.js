@@ -33,7 +33,7 @@ const WEATHER_API = {
 
 // Weather Icons
 const WEATHER_ICONS = {
-    'Clear': 'fas fa-sun',
+    'Sunny': 'fas fa-sun',
     'Partly Cloudy': 'fas fa-cloud-sun',
     'Cloudy': 'fas fa-cloud',
     'Rainy': 'fas fa-cloud-rain',
@@ -43,36 +43,15 @@ const WEATHER_ICONS = {
 };
 
 // Sample weather data for testing
-const SAMPLE_WEATHER_DATA = [
-    // Today's data will be added automatically
-    
-    // Yesterday
-    { timestamp: Date.now() - (24 * 60 * 60 * 1000), temperature: 11, condition: 'Rainy' },
-    { timestamp: Date.now() - (25 * 60 * 60 * 1000), temperature: 10, condition: 'Rainy' },
-    { timestamp: Date.now() - (26 * 60 * 60 * 1000), temperature: 9, condition: 'Cloudy' },
-    
-    // 2 days ago
-    { timestamp: Date.now() - (2 * 24 * 60 * 60 * 1000), temperature: 15, condition: 'Clear' },
-    { timestamp: Date.now() - (2 * 24 * 60 * 60 * 1000 + 2 * 60 * 60 * 1000), temperature: 14, condition: 'Clear' },
-    
-    // 3 days ago
-    { timestamp: Date.now() - (3 * 24 * 60 * 60 * 1000), temperature: 12, condition: 'Partly Cloudy' },
-    
-    // 5 days ago
-    { timestamp: Date.now() - (5 * 24 * 60 * 60 * 1000), temperature: 8, condition: 'Snowy' },
-    { timestamp: Date.now() - (5 * 24 * 60 * 60 * 1000 + 3 * 60 * 60 * 1000), temperature: 7, condition: 'Snowy' },
-    
-    // Last week
-    { timestamp: Date.now() - (7 * 24 * 60 * 60 * 1000), temperature: 13, condition: 'Clear' },
-    
-    // 2 weeks ago
-    { timestamp: Date.now() - (14 * 24 * 60 * 60 * 1000), temperature: 16, condition: 'Clear' },
-    
-    // Last month
-    { timestamp: Date.now() - (20 * 24 * 60 * 60 * 1000), temperature: 18, condition: 'Partly Cloudy' },
-    { timestamp: Date.now() - (25 * 24 * 60 * 60 * 1000), temperature: 19, condition: 'Clear' },
-    { timestamp: Date.now() - (28 * 24 * 60 * 60 * 1000), temperature: 17, condition: 'Stormy' }
-];
+const SAMPLE_WEATHER = {
+    data: {
+        values: {
+            temperature: 22,
+            cloudCover: 35,
+            precipitationProbability: 10
+        }
+    }
+};
 
 // Navigation
 document.querySelectorAll('.nav-button').forEach(button => {
@@ -244,7 +223,7 @@ function loadWeatherHistory() {
             state.weatherHistory = JSON.parse(savedHistory);
         } else {
             // Initialize with sample data for testing
-            state.weatherHistory = [...SAMPLE_WEATHER_DATA];
+            state.weatherHistory = [];
             localStorage.setItem('weatherHistory', JSON.stringify(state.weatherHistory));
         }
         updateHistoryView('day');
@@ -361,21 +340,22 @@ async function getWeatherData() {
         showLoading();
         
         const { latitude, longitude } = state.location;
-        const url = `${WEATHER_API.baseUrl}?location=${latitude},${longitude}&apikey=${WEATHER_API.key}&units=metric`;
+        const fields = ['temperature', 'cloudCover', 'precipitationProbability'];
+        const url = `${WEATHER_API.baseUrl}?location=${latitude},${longitude}&fields=${fields.join(',')}&apikey=${WEATHER_API.key}&units=metric`;
         
-        const response = await fetch(url, {
-            method: 'GET',
-            headers: {
-                'Accept': 'application/json',
-                'Content-Type': 'application/json'
-            },
-            mode: 'cors',
-            cache: 'no-cache'
-        });
+        const response = await fetch(url);
         
-        if (!response.ok) throw new Error('Weather API error');
+        if (!response.ok) {
+            throw new Error('Weather API error: ' + response.statusText);
+        }
         
         const data = await response.json();
+        console.log('Weather data:', data); // Debug log
+        
+        if (!data || !data.data || !data.data.values) {
+            throw new Error('Invalid data format');
+        }
+        
         state.weatherData = data;
         updateWeatherUI(data);
         
@@ -384,6 +364,13 @@ async function getWeatherData() {
         elements.statusText.textContent = 'Failed to load weather data';
         elements.temperature.textContent = '--°C';
         elements.temperature.style.visibility = 'visible';
+        
+        // Use sample data for testing
+        if (location.hostname === 'localhost' || location.hostname === '127.0.0.1') {
+            console.log('Using sample data for local testing');
+            state.weatherData = SAMPLE_WEATHER;
+            updateWeatherUI(SAMPLE_WEATHER);
+        }
     } finally {
         hideLoading();
     }
@@ -403,9 +390,11 @@ function updateWeatherUI(data) {
 }
 
 function getWeatherCondition(values) {
-    const cloudCover = values.cloudCover;
-    const precipitationProbability = values.precipitationProbability;
-    const temperature = values.temperature;
+    if (!values) return 'Unknown';
+    
+    const cloudCover = values.cloudCover || 0;
+    const precipitationProbability = values.precipitationProbability || 0;
+    const temperature = values.temperature || 0;
     
     if (precipitationProbability > 50) {
         if (temperature <= 0) return 'Snowy';
