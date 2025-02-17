@@ -12,6 +12,13 @@
     <meta http-equiv="Permissions-Policy" content="camera=*, geolocation=*, microphone=*">
 </head>
 <body>
+    <div id="offline-indicator" class="offline-banner hidden">
+        You are currently offline. Some features may be limited.
+    </div>
+    <div id="loading-spinner" class="loading-spinner hidden">
+        <div class="spinner"></div>
+    </div>
+
     <header>
         <nav>
             <a href="#" data-view="weather" class="active">Weather</a>
@@ -60,10 +67,6 @@
             </button>
         </div>
     </main>
-
-    <div id="offline-banner" class="hidden">
-        You are currently offline. Some features may be limited.
-    </div>
 
     <script src="js/app.js" defer></script>
     <script>

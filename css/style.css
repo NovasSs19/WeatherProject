@@ -171,6 +171,130 @@ h2::after {
     font-weight: 500;
 }
 
+/* Weather Animations */
+.weather-icon {
+    font-size: 48px;
+    margin: 20px 0;
+    position: relative;
+    display: inline-block;
+}
+
+/* Sunny Animation */
+.weather-sunny {
+    color: #FFD700;
+    animation: rotate 10s linear infinite;
+}
+
+@keyframes rotate {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+/* Cloudy Animation */
+.weather-cloudy {
+    color: #B0C4DE;
+}
+
+.weather-cloudy::before {
+    content: "☁️";
+    position: absolute;
+    left: -10px;
+    animation: float-left 3s ease-in-out infinite;
+}
+
+.weather-cloudy::after {
+    content: "☁️";
+    position: absolute;
+    right: -10px;
+    animation: float-right 3s ease-in-out infinite;
+}
+
+@keyframes float-left {
+    0%, 100% { transform: translateX(0); }
+    50% { transform: translateX(10px); }
+}
+
+@keyframes float-right {
+    0%, 100% { transform: translateX(0); }
+    50% { transform: translateX(-10px); }
+}
+
+/* Rainy Animation */
+.weather-rainy {
+    color: #4682B4;
+}
+
+.weather-rainy::after {
+    content: "💧";
+    position: absolute;
+    font-size: 24px;
+    left: 50%;
+    transform: translateX(-50%);
+    animation: rain 1s linear infinite;
+}
+
+@keyframes rain {
+    0% { 
+        transform: translateY(-20px);
+        opacity: 0;
+    }
+    50% {
+        opacity: 1;
+    }
+    100% {
+        transform: translateY(20px);
+        opacity: 0;
+    }
+}
+
+/* Snowy Animation */
+.weather-snowy {
+    color: #E0FFFF;
+}
+
+.weather-snowy::after {
+    content: "❄️";
+    position: absolute;
+    font-size: 24px;
+    left: 50%;
+    transform: translateX(-50%);
+    animation: snow 2s linear infinite;
+}
+
+@keyframes snow {
+    0% {
+        transform: translateY(-20px) rotate(0deg);
+        opacity: 0;
+    }
+    50% {
+        opacity: 1;
+    }
+    100% {
+        transform: translateY(20px) rotate(360deg);
+        opacity: 0;
+    }
+}
+
+/* Stormy Animation */
+.weather-stormy {
+    color: #4A4A4A;
+}
+
+.weather-stormy::after {
+    content: "⚡";
+    position: absolute;
+    font-size: 24px;
+    left: 50%;
+    transform: translateX(-50%);
+    animation: lightning 1.5s steps(1, end) infinite;
+}
+
+@keyframes lightning {
+    0%, 49% { opacity: 0; }
+    50%, 51% { opacity: 1; }
+    52%, 100% { opacity: 0; }
+}
+
 /* Camera Container */
 .camera-container {
     position: relative;
@@ -508,4 +632,144 @@ main {
 
 .view.active {
     animation: fadeIn 0.3s ease-out;
+}
+
+/* Loading and Offline States */
+.loading-spinner {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 1000;
+    background: rgba(255, 255, 255, 0.9);
+    padding: 20px;
+    border-radius: 10px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+}
+
+.spinner {
+    width: 40px;
+    height: 40px;
+    border: 4px solid #f3f3f3;
+    border-top: 4px solid #2196f3;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+.offline-banner {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    background: #ff5722;
+    color: white;
+    text-align: center;
+    padding: 10px;
+    z-index: 1000;
+    font-weight: bold;
+}
+
+/* Skeleton Loading */
+.skeleton-loader {
+    background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+    background-size: 200% 100%;
+    animation: loading 1.5s infinite;
+    border-radius: 4px;
+    height: 100px;
+    margin: 10px 0;
+}
+
+@keyframes loading {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+}
+
+/* Performance Optimizations */
+.weather-card {
+    will-change: transform;
+    transform: translateZ(0);
+    backface-visibility: hidden;
+}
+
+.photo-item img {
+    content-visibility: auto;
+}
+
+/* Install Button */
+.install-button {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    background: #2196f3;
+    color: white;
+    border: none;
+    padding: 12px 24px;
+    border-radius: 25px;
+    cursor: pointer;
+    font-size: 16px;
+    font-weight: bold;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    transition: all 0.3s ease;
+}
+
+.install-button:hover {
+    background: #1976d2;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+}
+
+/* Cached Data Indicator */
+.cached-info {
+    font-size: 12px;
+    color: #666;
+    margin-top: 8px;
+    font-style: italic;
+}
+
+/* Error States */
+.error {
+    color: #f44336;
+    text-align: center;
+    padding: 20px;
+    background: rgba(244, 67, 54, 0.1);
+    border-radius: 8px;
+    margin: 10px 0;
+}
+
+/* Responsive Improvements */
+@media (max-width: 480px) {
+    .weather-card {
+        padding: 15px;
+    }
+    
+    .action-button {
+        padding: 8px 16px;
+        font-size: 14px;
+    }
+    
+    .install-button {
+        bottom: 10px;
+        right: 10px;
+        padding: 8px 16px;
+        font-size: 14px;
+    }
+}
+
+/* Print Styles */
+@media print {
+    .offline-banner,
+    .loading-spinner,
+    .install-button,
+    nav {
+        display: none !important;
+    }
 }

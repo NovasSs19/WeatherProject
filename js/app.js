@@ -23,7 +23,11 @@ const elements = {
     cameraPermission: document.getElementById('camera-permission'),
     notificationPermission: document.getElementById('notification-permission'),
     navLinks: document.querySelectorAll('nav a'),
-    views: document.querySelectorAll('.view')
+    views: document.querySelectorAll('.view'),
+    offlineIndicator: document.getElementById('offline-indicator'),
+    lastUpdated: document.getElementById('last-updated'),
+    refreshButton: document.getElementById('refresh-button'),
+    loadingSpinner: document.getElementById('loading-spinner')
 };
 
 // Navigation
@@ -56,32 +60,90 @@ const WEATHER_API = {
 };
 
 // Weather Feature
-async function getWeather(lat, lon) {
+async function getWeatherData(latitude, longitude) {
+    elements.loadingSpinner.classList.remove('hidden');
+    
     try {
-        const url = `${WEATHER_API.baseUrl}?location=${lat},${lon}&apikey=${WEATHER_API.key}&units=metric`;
-        const response = await fetch(url);
-        
-        if (!response.ok) {
-            throw new Error('Weather data not available');
-        }
+        const response = await fetch(`https://api.tomorrow.io/v4/weather/realtime?location=${latitude},${longitude}&apikey=${WEATHER_API.key}&units=metric`);
+        if (!response.ok) throw new Error('Weather API error');
         
         const data = await response.json();
         updateWeatherUI(data);
+        localStorage.setItem('lastWeatherData', JSON.stringify({
+            data,
+            timestamp: Date.now()
+        }));
     } catch (error) {
-        console.error('Error fetching weather:', error);
-        elements.description.textContent = 'Failed to fetch weather data';
+        console.error('Weather data fetch error:', error);
+        const cachedData = localStorage.getItem('lastWeatherData');
+        
+        if (cachedData) {
+            const { data, timestamp } = JSON.parse(cachedData);
+            updateWeatherUI(data, new Date(timestamp));
+        } else {
+            elements.weatherInfo.innerHTML = '<p class="error">⚠️ Weather data could not be retrieved</p>';
+        }
+    } finally {
+        elements.loadingSpinner.classList.add('hidden');
     }
 }
 
-function updateWeatherUI(data) {
-    const temperature = Math.round(data.data.values.temperature);
-    const description = getWeatherDescription(data.data.values);
+function getWeatherIcon(values) {
+    const cloudCover = values.cloudCover;
+    const precipitationProbability = values.precipitationProbability;
+    const temperature = values.temperature;
     
-    elements.temperature.textContent = `${temperature}°C`;
-    elements.description.textContent = description;
+    if (precipitationProbability > 50) {
+        if (temperature <= 0) {
+            return '<div class="weather-icon weather-snowy">❄️</div>';
+        } else {
+            return '<div class="weather-icon weather-rainy">🌧️</div>';
+        }
+    } else if (cloudCover > 50) {
+        return '<div class="weather-icon weather-cloudy">☁️</div>';
+    } else {
+        return '<div class="weather-icon weather-sunny">☀️</div>';
+    }
 }
 
-function getWeatherDescription(values) {
+function updateWeatherUI(data, cachedTime = null) {
+    const temp = data.data.values.temperature;
+    const conditions = getWeatherCondition(data.data.values);
+    const weatherIcon = getWeatherIcon(data.data.values);
+    
+    elements.weatherInfo.innerHTML = `
+        <div class="weather-card">
+            <h2>YOUR LOCATION</h2>
+            ${weatherIcon}
+            <h2>${Math.round(temp)}°C</h2>
+            <p>${conditions}</p>
+            ${cachedTime ? `<p class="cached-info">Last updated: ${formatDate(cachedTime)}</p>` : ''}
+            <button id="refresh-weather" class="action-button">
+                <i class="fas fa-sync-alt"></i> REFRESH
+            </button>
+        </div>
+    `;
+
+    // Reattach refresh button event listener
+    document.getElementById('refresh-weather').addEventListener('click', async () => {
+        if (state.location) {
+            await getWeatherData(state.location.latitude, state.location.longitude);
+        } else {
+            alert('Please enable location first');
+        }
+    });
+}
+
+function formatDate(date) {
+    return new Intl.DateTimeFormat('en-US', {
+        hour: 'numeric',
+        minute: 'numeric',
+        day: 'numeric',
+        month: 'long'
+    }).format(date);
+}
+
+function getWeatherCondition(values) {
     const cloudCover = values.cloudCover;
     const precipitationProbability = values.precipitationProbability;
     
@@ -94,6 +156,48 @@ function getWeatherDescription(values) {
     } else {
         return 'Clear';
     }
+}
+
+// Network status tracking
+let isOnline = navigator.onLine;
+window.addEventListener('online', handleNetworkChange);
+window.addEventListener('offline', handleNetworkChange);
+
+function handleNetworkChange() {
+    isOnline = navigator.onLine;
+    updateOfflineIndicator();
+    if (navigator.serviceWorker.controller) {
+        navigator.serviceWorker.controller.postMessage({
+            type: 'OFFLINE_STATUS',
+            payload: isOnline
+        });
+    }
+}
+
+function updateOfflineIndicator() {
+    if (!isOnline) {
+        elements.offlineIndicator.classList.remove('hidden');
+        elements.offlineIndicator.textContent = '📡 Offline mode - Limited features available';
+    } else {
+        elements.offlineIndicator.classList.add('hidden');
+    }
+}
+
+// Performance optimization for images
+function lazyLoadImages() {
+    const images = document.querySelectorAll('img[data-src]');
+    const imageObserver = new IntersectionObserver((entries, observer) => {
+        entries.forEach(entry => {
+            if (entry.isIntersecting) {
+                const img = entry.target;
+                img.src = img.dataset.src;
+                img.removeAttribute('data-src');
+                observer.unobserve(img);
+            }
+        });
+    });
+
+    images.forEach(img => imageObserver.observe(img));
 }
 
 // Location Feature
@@ -132,7 +236,7 @@ function handleLocationSuccess(position) {
     elements.locationPermission.innerHTML = '<i class="fas fa-check"></i> Location Enabled';
     
     // Get weather data immediately
-    getWeather(state.location.latitude, state.location.longitude);
+    getWeatherData(state.location.latitude, state.location.longitude);
 }
 
 function getCurrentPosition() {
@@ -150,12 +254,12 @@ let videoStream = null;
 
 async function startCamera() {
     try {
-        // Varolan stream'i kapat
+        // Close existing stream
         if (videoStream) {
             videoStream.getTracks().forEach(track => track.stop());
         }
 
-        // Yeni stream al
+        // Get new stream
         videoStream = await navigator.mediaDevices.getUserMedia({
             video: {
                 facingMode: 'environment',
@@ -165,14 +269,14 @@ async function startCamera() {
             audio: false
         });
 
-        // Video elementine bağla
+        // Attach to video element
         elements.cameraPreview.srcObject = videoStream;
         await elements.cameraPreview.play();
         
         updatePermissionStatus('camera', true);
         return true;
     } catch (error) {
-        console.error('Kamera başlatılamadı:', error);
+        console.error('Camera could not be started:', error);
         updatePermissionStatus('camera', false);
         return false;
     }
@@ -183,7 +287,7 @@ async function requestCameraPermission() {
         const result = await startCamera();
         return result;
     } catch (error) {
-        console.error('Kamera izni alınamadı:', error);
+        console.error('Camera permission could not be obtained:', error);
         updatePermissionStatus('camera', false);
         return false;
     }
@@ -202,7 +306,7 @@ async function checkCameraPermission() {
             return false;
         }
     } catch (error) {
-        console.error('Kamera izni kontrolü başarısız:', error);
+        console.error('Camera permission check failed:', error);
         return await requestCameraPermission();
     }
 }
@@ -276,7 +380,7 @@ function handlePermissionError(type, error) {
 elements.refreshWeather.addEventListener('click', async () => {
     if (state.location) {
         elements.description.textContent = 'Updating...';
-        await getWeather(state.location.latitude, state.location.longitude);
+        await getWeatherData(state.location.latitude, state.location.longitude);
     } else {
         alert('Please enable location first');
     }
@@ -319,38 +423,53 @@ async function loadPhotosFromIndexedDB() {
     };
 }
 
-// Offline Support
-window.addEventListener('online', () => {
-    state.isOnline = true;
-    elements.offlineBanner.classList.add('hidden');
-});
-
-window.addEventListener('offline', () => {
-    state.isOnline = false;
-    elements.offlineBanner.classList.remove('hidden');
-});
-
 // Initialize permissions
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
     requestLocationPermission();
     checkCameraPermission();
     
     elements.notificationPermission.addEventListener('click', requestNotificationPermission);
+    
+    lazyLoadImages();
+    handleNetworkChange();
 });
 
 function updatePermissionStatus(permission, granted) {
-    const button = permission === 'location' ? elements.locationPermission :
-                  permission === 'camera' ? elements.cameraPermission :
-                  elements.notificationPermission;
-    
+    const button = document.getElementById(`${permission}-permission`);
+    if (!button) return;
+
     if (granted) {
-        button.disabled = true;
-        button.classList.add('permission-granted');
         button.innerHTML = `<i class="fas fa-check"></i> ${permission.charAt(0).toUpperCase() + permission.slice(1)} Enabled`;
+        button.classList.add('enabled');
+        button.style.backgroundColor = '#4CAF50';
+        button.style.color = 'white';
     } else {
-        button.disabled = false;
-        button.classList.remove('permission-granted');
-        button.innerHTML = `<i class="fas fa-times"></i> ${permission.charAt(0).toUpperCase() + permission.slice(1)} Access Denied`;
-        button.style.color = '#f44336';
+        button.innerHTML = `<i class="fas fa-times"></i> Enable ${permission.charAt(0).toUpperCase() + permission.slice(1)}`;
+        button.classList.remove('enabled');
+        button.style.backgroundColor = '#f44336';
+        button.style.color = '#ffffff';
     }
 }
+
+// Add to Home Screen promotion
+let deferredPrompt;
+window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault();
+    deferredPrompt = e;
+    
+    // Show install promotion when appropriate
+    const installButton = document.createElement('button');
+    installButton.textContent = '📱 Install App';
+    installButton.classList.add('install-button');
+    installButton.addEventListener('click', async () => {
+        if (deferredPrompt) {
+            deferredPrompt.prompt();
+            const { outcome } = await deferredPrompt.userChoice;
+            console.log(`User response to install prompt: ${outcome}`);
+            deferredPrompt = null;
+            installButton.remove();
+        }
+    });
+    
+    document.body.appendChild(installButton);
+});
