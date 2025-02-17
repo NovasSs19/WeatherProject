@@ -1,81 +1,366 @@
-// App State
-let state = {
-    location: null,
-    weatherData: null,
-    photos: [],
-    currentView: 'weather',
-    isOnline: navigator.onLine
-};
-
 // DOM Elements
 const elements = {
-    weatherView: document.getElementById('weather-view'),
-    photosView: document.getElementById('photos-view'),
-    settingsView: document.getElementById('settings-view'),
-    weatherInfo: document.getElementById('weather-info'),
+    weatherCard: document.querySelector('.weather-card'),
     temperature: document.querySelector('.temperature'),
-    description: document.querySelector('.description'),
-    refreshWeather: document.getElementById('refresh-weather'),
+    statusText: document.querySelector('.status-text'),
+    loadingSpinner: document.querySelector('.loading-spinner'),
+    locationButton: document.getElementById('location-permission'),
+    cameraButton: document.getElementById('camera-permission'),
+    notificationButton: document.getElementById('notification-permission'),
     cameraPreview: document.getElementById('camera-preview'),
     captureButton: document.getElementById('capture-button'),
     photoGallery: document.getElementById('photo-gallery'),
-    locationPermission: document.getElementById('location-permission'),
-    cameraPermission: document.getElementById('camera-permission'),
-    notificationPermission: document.getElementById('notification-permission'),
-    navLinks: document.querySelectorAll('nav a'),
-    views: document.querySelectorAll('.view'),
-    offlineIndicator: document.getElementById('offline-indicator'),
-    lastUpdated: document.getElementById('last-updated'),
-    refreshButton: document.getElementById('refresh-button'),
-    loadingSpinner: document.getElementById('loading-spinner')
+    rainContainer: document.querySelector('.rain-container'),
+    cloudContainer: document.querySelector('.cloud-container'),
+    historyList: document.querySelector('.history-list'),
+    historyFilters: document.querySelector('.history-filters')
 };
 
+// App State
+const state = {
+    location: null,
+    weatherData: null,
+    isLoading: false,
+    weatherHistory: []
+};
+
+// Weather API Configuration
+const WEATHER_API = {
+    key: 'cipJIPBjkoIWPy92BhaWjwKZyprvnglK',
+    baseUrl: 'https://api.tomorrow.io/v4/weather/realtime',
+    updateInterval: 60 * 1000 // 1 minute
+};
+
+// Weather Icons
+const WEATHER_ICONS = {
+    'Clear': 'fas fa-sun',
+    'Partly Cloudy': 'fas fa-cloud-sun',
+    'Cloudy': 'fas fa-cloud',
+    'Rainy': 'fas fa-cloud-rain',
+    'Snowy': 'fas fa-snowflake',
+    'Stormy': 'fas fa-bolt',
+    'Foggy': 'fas fa-smog'
+};
+
+// Sample weather data for testing
+const SAMPLE_WEATHER_DATA = [
+    // Today's data will be added automatically
+    
+    // Yesterday
+    { timestamp: Date.now() - (24 * 60 * 60 * 1000), temperature: 11, condition: 'Rainy' },
+    { timestamp: Date.now() - (25 * 60 * 60 * 1000), temperature: 10, condition: 'Rainy' },
+    { timestamp: Date.now() - (26 * 60 * 60 * 1000), temperature: 9, condition: 'Cloudy' },
+    
+    // 2 days ago
+    { timestamp: Date.now() - (2 * 24 * 60 * 60 * 1000), temperature: 15, condition: 'Clear' },
+    { timestamp: Date.now() - (2 * 24 * 60 * 60 * 1000 + 2 * 60 * 60 * 1000), temperature: 14, condition: 'Clear' },
+    
+    // 3 days ago
+    { timestamp: Date.now() - (3 * 24 * 60 * 60 * 1000), temperature: 12, condition: 'Partly Cloudy' },
+    
+    // 5 days ago
+    { timestamp: Date.now() - (5 * 24 * 60 * 60 * 1000), temperature: 8, condition: 'Snowy' },
+    { timestamp: Date.now() - (5 * 24 * 60 * 60 * 1000 + 3 * 60 * 60 * 1000), temperature: 7, condition: 'Snowy' },
+    
+    // Last week
+    { timestamp: Date.now() - (7 * 24 * 60 * 60 * 1000), temperature: 13, condition: 'Clear' },
+    
+    // 2 weeks ago
+    { timestamp: Date.now() - (14 * 24 * 60 * 60 * 1000), temperature: 16, condition: 'Clear' },
+    
+    // Last month
+    { timestamp: Date.now() - (20 * 24 * 60 * 60 * 1000), temperature: 18, condition: 'Partly Cloudy' },
+    { timestamp: Date.now() - (25 * 24 * 60 * 60 * 1000), temperature: 19, condition: 'Clear' },
+    { timestamp: Date.now() - (28 * 24 * 60 * 60 * 1000), temperature: 17, condition: 'Stormy' }
+];
+
 // Navigation
-elements.navLinks.forEach(link => {
-    link.addEventListener('click', (e) => {
-        e.preventDefault();
-        const view = e.target.getAttribute('href').substring(1);
+document.querySelectorAll('.nav-button').forEach(button => {
+    button.addEventListener('click', () => {
+        const view = button.dataset.view;
         switchView(view);
     });
 });
 
 function switchView(view) {
-    elements.views.forEach(v => v.classList.remove('active'));
+    document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+    document.querySelectorAll('.nav-button').forEach(b => b.classList.remove('active'));
+    
     document.getElementById(`${view}-view`).classList.add('active');
+    document.querySelector(`[data-view="${view}"]`).classList.add('active');
     
-    elements.navLinks.forEach(link => {
-        link.classList.remove('active');
-        if (link.getAttribute('href') === `#${view}`) {
-            link.classList.add('active');
-        }
-    });
-    
-    state.currentView = view;
-    
-    // Handle view-specific initialization
     if (view === 'camera') {
         initializeCamera();
+    } else if (view === 'history') {
+        updateHistoryView(getCurrentFilter());
     }
 }
 
-// Weather API Configuration
-const WEATHER_API = {
-    key: 'cipJIPBjkoIWPy92BhaWjwKZyprvnglK',
-    baseUrl: 'https://api.tomorrow.io/v4/weather/realtime'
-};
+// Loading State Management
+function showLoading() {
+    state.isLoading = true;
+    elements.loadingSpinner.style.display = 'block';
+    elements.temperature.style.visibility = 'hidden';
+    elements.statusText.textContent = 'Loading weather data...';
+}
 
-// Weather Feature
-async function getWeatherData() {
-    if (!state.location) {
-        console.error('Location not available');
+function hideLoading() {
+    state.isLoading = false;
+    elements.loadingSpinner.style.display = 'none';
+    elements.temperature.style.visibility = 'visible';
+}
+
+// Weather Effects
+function createRainDrops() {
+    elements.rainContainer.innerHTML = '';
+    const numberOfDrops = 100;
+    
+    for (let i = 0; i < numberOfDrops; i++) {
+        const drop = document.createElement('div');
+        drop.className = 'rain-drop';
+        
+        // Random positioning and animation
+        drop.style.left = `${Math.random() * 100}%`;
+        drop.style.animationDuration = `${Math.random() * 1 + 0.5}s`;
+        drop.style.opacity = Math.random();
+        drop.style.animationDelay = `${Math.random() * 2}s`;
+        
+        elements.rainContainer.appendChild(drop);
+    }
+}
+
+function createClouds() {
+    elements.cloudContainer.innerHTML = '';
+    const numberOfClouds = 5;
+    
+    for (let i = 0; i < numberOfClouds; i++) {
+        const cloud = document.createElement('div');
+        cloud.className = 'cloud';
+        
+        // Random cloud size and positioning
+        const size = Math.random() * 100 + 50;
+        cloud.style.width = `${size}px`;
+        cloud.style.height = `${size/2}px`;
+        cloud.style.top = `${Math.random() * 50}%`;
+        cloud.style.animationDuration = `${Math.random() * 10 + 20}s`;
+        cloud.style.animationDelay = `${Math.random() * 10}s`;
+        
+        elements.cloudContainer.appendChild(cloud);
+    }
+}
+
+function toggleWeatherEffects(condition) {
+    const isRainy = condition.toLowerCase().includes('rainy');
+    const isCloudy = condition.toLowerCase().includes('cloudy');
+    
+    // Toggle rain effect
+    elements.rainContainer.style.display = isRainy ? 'block' : 'none';
+    if (isRainy && !elements.rainContainer.children.length) {
+        createRainDrops();
+    }
+    
+    // Toggle cloud effect
+    elements.cloudContainer.style.display = (isRainy || isCloudy) ? 'block' : 'none';
+    if ((isRainy || isCloudy) && !elements.cloudContainer.children.length) {
+        createClouds();
+    }
+}
+
+// Photo Gallery
+function createPhotoElement(dataUrl) {
+    const container = document.createElement('div');
+    container.className = 'photo-container';
+    
+    const img = document.createElement('img');
+    img.src = dataUrl;
+    
+    const deleteBtn = document.createElement('button');
+    deleteBtn.className = 'delete-photo';
+    deleteBtn.innerHTML = '×';
+    deleteBtn.addEventListener('click', () => container.remove());
+    
+    container.appendChild(img);
+    container.appendChild(deleteBtn);
+    return container;
+}
+
+// Weather History Management
+function saveWeatherData(data) {
+    try {
+        const newItem = {
+            timestamp: Date.now(),
+            temperature: Math.round(data.data.values.temperature),
+            condition: getWeatherCondition(data.data.values)
+        };
+        
+        // Check if we should add this item
+        const shouldAdd = shouldAddHistoryItem(newItem);
+        
+        if (shouldAdd) {
+            state.weatherHistory.unshift(newItem);
+            
+            // Keep only last 30 days of data
+            const thirtyDaysAgo = Date.now() - (30 * 24 * 60 * 60 * 1000);
+            state.weatherHistory = state.weatherHistory.filter(item => item.timestamp > thirtyDaysAgo);
+            
+            localStorage.setItem('weatherHistory', JSON.stringify(state.weatherHistory));
+            
+            // Update view if we're on history tab
+            if (document.getElementById('history-view').classList.contains('active')) {
+                updateHistoryView(getCurrentFilter());
+            }
+        }
+    } catch (error) {
+        console.error('Error saving weather data:', error);
+    }
+}
+
+function shouldAddHistoryItem(newItem) {
+    if (state.weatherHistory.length === 0) return true;
+    
+    const lastItem = state.weatherHistory[0];
+    const timeDiff = newItem.timestamp - lastItem.timestamp;
+    const minInterval = 5 * 60 * 1000; // 5 minutes
+    
+    // Check if enough time has passed
+    if (timeDiff < minInterval) return false;
+    
+    // Check if weather has changed
+    const tempChanged = newItem.temperature !== lastItem.temperature;
+    const conditionChanged = newItem.condition !== lastItem.condition;
+    
+    return tempChanged || conditionChanged;
+}
+
+function getCurrentFilter() {
+    const activeFilter = elements.historyFilters.querySelector('.filter-button.active');
+    return activeFilter ? activeFilter.dataset.period : 'day';
+}
+
+function loadWeatherHistory() {
+    try {
+        let savedHistory = localStorage.getItem('weatherHistory');
+        if (savedHistory) {
+            state.weatherHistory = JSON.parse(savedHistory);
+        } else {
+            // Initialize with sample data for testing
+            state.weatherHistory = [...SAMPLE_WEATHER_DATA];
+            localStorage.setItem('weatherHistory', JSON.stringify(state.weatherHistory));
+        }
+        updateHistoryView('day');
+    } catch (error) {
+        console.error('Error loading weather history:', error);
+        state.weatherHistory = [];
+    }
+}
+
+function formatDate(timestamp) {
+    const date = new Date(timestamp);
+    const now = new Date();
+    const diffDays = Math.floor((now - date) / (24 * 60 * 60 * 1000));
+    
+    if (diffDays === 0) {
+        return date.toLocaleTimeString('en-US', {
+            hour: '2-digit',
+            minute: '2-digit'
+        });
+    } else if (diffDays === 1) {
+        return `Yesterday ${date.toLocaleTimeString('en-US', {
+            hour: '2-digit',
+            minute: '2-digit'
+        })}`;
+    } else if (diffDays < 7) {
+        return date.toLocaleDateString('en-US', {
+            weekday: 'short',
+            hour: '2-digit',
+            minute: '2-digit'
+        });
+    } else {
+        return date.toLocaleDateString('en-US', {
+            month: 'short',
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
+        });
+    }
+}
+
+function filterHistory(period) {
+    const now = Date.now();
+    const msPerDay = 24 * 60 * 60 * 1000;
+    
+    switch (period) {
+        case 'day':
+            return state.weatherHistory.filter(item => now - item.timestamp <= msPerDay);
+        case 'week':
+            return state.weatherHistory.filter(item => now - item.timestamp <= 7 * msPerDay);
+        case 'month':
+            return state.weatherHistory.filter(item => now - item.timestamp <= 30 * msPerDay);
+        default:
+            return state.weatherHistory;
+    }
+}
+
+function updateHistoryView(period = 'day') {
+    if (!elements.historyList) return;
+    
+    const filteredHistory = filterHistory(period);
+    elements.historyList.innerHTML = '';
+    
+    if (filteredHistory.length === 0) {
+        elements.historyList.innerHTML = '<div class="history-empty">No weather data available for this period</div>';
         return;
     }
+    
+    filteredHistory.forEach((item, index) => {
+        const historyItem = document.createElement('div');
+        historyItem.className = 'history-item';
+        
+        // Check if this item has the same values as the next one
+        const nextItem = filteredHistory[index + 1];
+        const noChange = nextItem && 
+                        item.temperature === nextItem.temperature && 
+                        item.condition === nextItem.condition;
+        
+        if (noChange) {
+            historyItem.classList.add('no-change');
+        }
+        
+        const icon = WEATHER_ICONS[item.condition] || 'fas fa-cloud';
+        
+        historyItem.innerHTML = `
+            <div class="history-date">${formatDate(item.timestamp)}</div>
+            <div class="history-condition">
+                <i class="${icon}"></i>
+                ${item.condition}
+            </div>
+            <div class="history-temp">${item.temperature}°C</div>
+        `;
+        elements.historyList.appendChild(historyItem);
+    });
+}
 
-    const { latitude, longitude } = state.location;
+// Event Listeners for History Filters
+elements.historyFilters?.addEventListener('click', (e) => {
+    if (e.target.classList.contains('filter-button')) {
+        // Update active state
+        elements.historyFilters.querySelectorAll('.filter-button')
+            .forEach(btn => btn.classList.remove('active'));
+        e.target.classList.add('active');
+        
+        // Update view
+        updateHistoryView(e.target.dataset.period);
+    }
+});
+
+// Weather Functions
+async function getWeatherData() {
+    if (state.isLoading || !state.location) return;
     
     try {
-        showLoadingState();
+        showLoading();
         
+        const { latitude, longitude } = state.location;
         const response = await fetch(
             `${WEATHER_API.baseUrl}?location=${latitude},${longitude}&apikey=${WEATHER_API.key}&units=metric`
         );
@@ -84,103 +369,29 @@ async function getWeatherData() {
         
         const data = await response.json();
         state.weatherData = data;
-        
         updateWeatherUI(data);
-        cacheWeatherData(data);
         
-        return true;
     } catch (error) {
         console.error('Weather data fetch error:', error);
-        handleWeatherError();
-        return false;
+        elements.statusText.textContent = 'Failed to load weather data';
+        elements.temperature.textContent = '--°C';
+        elements.temperature.style.visibility = 'visible';
+    } finally {
+        hideLoading();
     }
 }
 
-function showLoadingState() {
-    elements.weatherInfo.innerHTML = `
-        <div class="weather-card">
-            <div class="weather-content">
-                <h2>Loading Weather...</h2>
-                <div class="weather-icon">
-                    <div class="loading-spinner"></div>
-                </div>
-                <div class="weather-details">
-                    <h3>--°C</h3>
-                    <p>Please wait...</p>
-                </div>
-            </div>
-        </div>
-    `;
-}
-
-function handleWeatherError() {
-    const cachedData = localStorage.getItem('weatherData');
-    if (cachedData) {
-        const { data, timestamp } = JSON.parse(cachedData);
-        updateWeatherUI(data, new Date(timestamp));
-    } else {
-        elements.weatherInfo.innerHTML = `
-            <div class="weather-card">
-                <div class="weather-content">
-                    <h2>Weather Unavailable</h2>
-                    <div class="weather-icon">
-                        <i class="fas fa-exclamation-circle"></i>
-                    </div>
-                    <div class="weather-details">
-                        <p>Could not retrieve weather data</p>
-                        <button id="retry-weather" class="action-button">
-                            <i class="fas fa-sync-alt"></i> Retry
-                        </button>
-                    </div>
-                </div>
-            </div>
-        `;
-        
-        document.getElementById('retry-weather')?.addEventListener('click', getWeatherData);
-    }
-}
-
-function getWeatherIcon(values) {
-    const cloudCover = values.cloudCover;
-    const precipitationProbability = values.precipitationProbability;
-    const temperature = values.temperature;
+function updateWeatherUI(data) {
+    const temp = Math.round(data.data.values.temperature);
+    elements.temperature.textContent = `${temp}°C`;
+    const condition = getWeatherCondition(data.data.values);
+    elements.statusText.textContent = condition;
     
-    if (precipitationProbability > 50) {
-        if (temperature <= 0) {
-            return '<div class="weather-icon weather-snowy">❄️</div>';
-        }
-        return '<div class="weather-icon weather-rainy">🌧️</div>';
-    } else if (cloudCover > 70) {
-        return '<div class="weather-icon weather-cloudy">☁️</div>';
-    } else {
-        return '<div class="weather-icon weather-sunny">☀️</div>';
-    }
-}
-
-function updateWeatherUI(data, cachedTime = null) {
-    const values = data.data.values;
-    const temp = Math.round(values.temperature);
-    const conditions = getWeatherCondition(values);
-    const weatherIcon = getWeatherIcon(values);
+    // Toggle weather effects based on condition
+    toggleWeatherEffects(condition);
     
-    elements.weatherInfo.innerHTML = `
-        <div class="weather-card">
-            <div class="weather-content">
-                <h2>Current Weather</h2>
-                ${weatherIcon}
-                <div class="weather-details">
-                    <h3>${temp}°C</h3>
-                    <p>${conditions}</p>
-                    ${cachedTime ? `<p class="cached-info">Last updated: ${formatTime(cachedTime)}</p>` : ''}
-                    <button id="refresh-weather" class="action-button">
-                        <i class="fas fa-sync-alt"></i> Refresh
-                    </button>
-                </div>
-            </div>
-        </div>
-    `;
-    
-    document.getElementById('refresh-weather')?.addEventListener('click', getWeatherData);
+    // Save to history
+    saveWeatherData(data);
 }
 
 function getWeatherCondition(values) {
@@ -200,22 +411,7 @@ function getWeatherCondition(values) {
     }
 }
 
-function formatTime(date) {
-    return new Intl.DateTimeFormat('en-US', {
-        hour: 'numeric',
-        minute: 'numeric',
-        hour12: true
-    }).format(date);
-}
-
-function cacheWeatherData(data) {
-    localStorage.setItem('weatherData', JSON.stringify({
-        data,
-        timestamp: Date.now()
-    }));
-}
-
-// Location Feature
+// Permission Handlers
 async function requestLocationPermission() {
     try {
         const position = await getCurrentPosition();
@@ -223,12 +419,14 @@ async function requestLocationPermission() {
             latitude: position.coords.latitude,
             longitude: position.coords.longitude
         };
-        elements.locationPermission.classList.add('enabled');
-        await getWeatherData();
+        elements.locationButton.classList.add('enabled');
+        elements.locationButton.textContent = 'Location Enabled';
+        getWeatherData();
         return true;
     } catch (error) {
         console.error('Location permission error:', error);
-        elements.locationPermission.classList.remove('enabled');
+        elements.locationButton.classList.remove('enabled');
+        elements.statusText.textContent = 'Please enable location access';
         return false;
     }
 }
@@ -243,196 +441,122 @@ function getCurrentPosition() {
     });
 }
 
-// Camera Feature
 async function initializeCamera() {
     try {
         const stream = await navigator.mediaDevices.getUserMedia({
-            video: {
-                facingMode: 'environment',
-                width: { ideal: 1280 },
-                height: { ideal: 720 }
-            },
+            video: { facingMode: 'environment' },
             audio: false
         });
         
         elements.cameraPreview.srcObject = stream;
-        elements.cameraPermission.classList.add('enabled');
+        elements.cameraButton.classList.add('enabled');
+        elements.cameraButton.textContent = 'Camera Enabled';
         return true;
     } catch (error) {
         console.error('Camera permission error:', error);
-        elements.cameraPermission.classList.remove('enabled');
+        elements.cameraButton.classList.remove('enabled');
+        return false;
+    }
+}
+
+async function requestNotificationPermission() {
+    try {
+        const permission = await Notification.requestPermission();
+        if (permission === 'granted') {
+            elements.notificationButton.classList.add('enabled');
+            elements.notificationButton.textContent = 'Notifications Enabled';
+            return true;
+        } else {
+            elements.notificationButton.classList.remove('enabled');
+            return false;
+        }
+    } catch (error) {
+        console.error('Notification permission error:', error);
+        elements.notificationButton.classList.remove('enabled');
         return false;
     }
 }
 
 // Event Listeners
-elements.locationPermission.addEventListener('click', requestLocationPermission);
-elements.cameraPermission.addEventListener('click', initializeCamera);
-elements.captureButton.addEventListener('click', capturePhoto);
+elements.locationButton.addEventListener('click', requestLocationPermission);
+elements.cameraButton.addEventListener('click', initializeCamera);
+elements.notificationButton.addEventListener('click', requestNotificationPermission);
 
-// Network status tracking
-let isOnline = navigator.onLine;
-window.addEventListener('online', handleNetworkChange);
-window.addEventListener('offline', handleNetworkChange);
-
-function handleNetworkChange() {
-    isOnline = navigator.onLine;
-    updateOfflineIndicator();
-    if (navigator.serviceWorker.controller) {
-        navigator.serviceWorker.controller.postMessage({
-            type: 'OFFLINE_STATUS',
-            payload: isOnline
-        });
+// Photo Capture
+elements.captureButton?.addEventListener('click', async () => {
+    if (!elements.cameraPreview.srcObject) {
+        await initializeCamera();
+        return;
     }
-}
+    
+    const canvas = document.createElement('canvas');
+    canvas.width = elements.cameraPreview.videoWidth;
+    canvas.height = elements.cameraPreview.videoHeight;
+    
+    const context = canvas.getContext('2d');
+    context.drawImage(elements.cameraPreview, 0, 0);
+    
+    const photoContainer = createPhotoElement(canvas.toDataURL('image/jpeg'));
+    elements.photoGallery.insertBefore(photoContainer, elements.photoGallery.firstChild);
+});
 
-function updateOfflineIndicator() {
-    if (!isOnline) {
-        elements.offlineIndicator.classList.remove('hidden');
-        elements.offlineIndicator.textContent = '📡 Offline mode - Limited features available';
-    } else {
-        elements.offlineIndicator.classList.add('hidden');
-    }
-}
-
-// Performance optimization for images
-function lazyLoadImages() {
-    const images = document.querySelectorAll('img[data-src]');
-    const imageObserver = new IntersectionObserver((entries, observer) => {
-        entries.forEach(entry => {
-            if (entry.isIntersecting) {
-                const img = entry.target;
-                img.src = img.dataset.src;
-                img.removeAttribute('data-src');
-                observer.unobserve(img);
+// Initialize App
+window.addEventListener('load', () => {
+    // Hide weather effects and loading spinner initially
+    elements.loadingSpinner.style.display = 'none';
+    elements.rainContainer.style.display = 'none';
+    elements.cloudContainer.style.display = 'none';
+    
+    // Load weather history
+    loadWeatherHistory();
+    
+    // Check if we already have location permission
+    if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+            (position) => {
+                state.location = {
+                    latitude: position.coords.latitude,
+                    longitude: position.coords.longitude
+                };
+                elements.locationButton.classList.add('enabled');
+                elements.locationButton.textContent = 'Location Enabled';
+                
+                // Initial weather fetch
+                getWeatherData();
+                
+                // Set up periodic weather updates
+                setInterval(() => {
+                    if (document.visibilityState === 'visible') {
+                        getWeatherData();
+                    }
+                }, WEATHER_API.updateInterval);
+            },
+            () => {
+                elements.statusText.textContent = 'Please enable location access';
+                elements.temperature.textContent = '--°C';
             }
-        });
-    });
-
-    images.forEach(img => imageObserver.observe(img));
-}
-
-// Notification Feature
-async function requestNotificationPermission() {
-    try {
-        const result = await Notification.requestPermission();
-        
-        if (result === 'granted') {
-            elements.notificationPermission.disabled = true;
-            elements.notificationPermission.classList.add('permission-granted');
-            elements.notificationPermission.innerHTML = '<i class="fas fa-check"></i> Notifications Enabled';
-        } else {
-            handlePermissionError('notification', new Error('Notification permission denied'));
-        }
-    } catch (error) {
-        handlePermissionError('notification', error);
+        );
     }
-}
-
-function handlePermissionError(type, error) {
-    console.error(`Error with ${type} permission:`, error);
-    const button = type === 'location' ? elements.locationPermission :
-                  type === 'camera' ? elements.cameraPermission :
-                  elements.notificationPermission;
     
-    button.innerHTML = `<i class="fas fa-times"></i> ${type.charAt(0).toUpperCase() + type.slice(1)} Access Denied`;
-    button.style.color = '#f44336';
-}
-
-// Refresh Weather
-elements.refreshWeather.addEventListener('click', async () => {
-    if (state.location) {
-        elements.description.textContent = 'Updating...';
-        await getWeatherData();
-    } else {
-        alert('Please enable location first');
+    // Watch for location changes
+    if (navigator.geolocation) {
+        navigator.geolocation.watchPosition(
+            (position) => {
+                const newLocation = {
+                    latitude: position.coords.latitude,
+                    longitude: position.coords.longitude
+                };
+                
+                // Check if location has changed significantly (more than 100 meters)
+                if (!state.location || 
+                    Math.abs(state.location.latitude - newLocation.latitude) > 0.001 ||
+                    Math.abs(state.location.longitude - newLocation.longitude) > 0.001) {
+                    state.location = newLocation;
+                    getWeatherData();
+                }
+            },
+            null,
+            { enableHighAccuracy: true }
+        );
     }
-});
-
-// IndexedDB Setup
-let db;
-const request = indexedDB.open('WeatherPWA', 1);
-
-request.onerror = (event) => {
-    console.error('IndexedDB error:', event.target.error);
-};
-
-request.onupgradeneeded = (event) => {
-    db = event.target.result;
-    if (!db.objectStoreNames.contains('photos')) {
-        db.createObjectStore('photos', { keyPath: 'id', autoIncrement: true });
-    }
-};
-
-request.onsuccess = (event) => {
-    db = event.target.result;
-    loadPhotosFromIndexedDB();
-};
-
-function savePhotoToIndexedDB(photoUrl) {
-    const transaction = db.transaction(['photos'], 'readwrite');
-    const store = transaction.objectStore('photos');
-    store.add({ url: photoUrl, timestamp: Date.now() });
-}
-
-async function loadPhotosFromIndexedDB() {
-    const transaction = db.transaction(['photos'], 'readonly');
-    const store = transaction.objectStore('photos');
-    const request = store.getAll();
-    
-    request.onsuccess = () => {
-        state.photos = request.result.map(photo => photo.url);
-        updatePhotoGallery();
-    };
-}
-
-// Initialize permissions
-document.addEventListener('DOMContentLoaded', async () => {
-    await requestLocationPermission();
-    initializeCamera();
-    
-    elements.notificationPermission.addEventListener('click', requestNotificationPermission);
-    
-    lazyLoadImages();
-    handleNetworkChange();
-});
-
-function updatePermissionStatus(permission, granted) {
-    const button = document.getElementById(`${permission}-permission`);
-    if (!button) return;
-
-    if (granted) {
-        button.innerHTML = `<i class="fas fa-check"></i> ${permission.charAt(0).toUpperCase() + permission.slice(1)} Enabled`;
-        button.classList.add('enabled');
-        button.style.backgroundColor = '#4CAF50';
-        button.style.color = 'white';
-    } else {
-        button.innerHTML = `<i class="fas fa-times"></i> Enable ${permission.charAt(0).toUpperCase() + permission.slice(1)}`;
-        button.classList.remove('enabled');
-        button.style.backgroundColor = '#f44336';
-        button.style.color = '#ffffff';
-    }
-}
-
-// Add to Home Screen promotion
-let deferredPrompt;
-window.addEventListener('beforeinstallprompt', (e) => {
-    e.preventDefault();
-    deferredPrompt = e;
-    
-    // Show install promotion when appropriate
-    const installButton = document.createElement('button');
-    installButton.textContent = '📱 Install App';
-    installButton.classList.add('install-button');
-    installButton.addEventListener('click', async () => {
-        if (deferredPrompt) {
-            deferredPrompt.prompt();
-            const { outcome } = await deferredPrompt.userChoice;
-            console.log(`User response to install prompt: ${outcome}`);
-            deferredPrompt = null;
-            installButton.remove();
-        }
-    });
-    
-    document.body.appendChild(installButton);
 });

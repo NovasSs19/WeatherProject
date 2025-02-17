@@ -1,9 +1,9 @@
-const CACHE_NAME = 'weather-pwa-v1';
+const CACHE_NAME = 'weather-app-v1';
 const API_CACHE_NAME = 'weather-api-cache-v1';
 const STATIC_CACHE_NAME = 'weather-static-cache-v1';
 const IMAGE_CACHE_NAME = 'weather-image-cache-v1';
 
-const STATIC_ASSETS = [
+const ASSETS_TO_CACHE = [
     '/',
     '/index.html',
     '/css/style.css',
@@ -23,22 +23,18 @@ const STATIC_ASSETS = [
 // Install Service Worker
 self.addEventListener('install', (event) => {
     event.waitUntil(
-        caches.open(STATIC_CACHE_NAME)
-            .then((cache) => {
-                console.log('Caching static assets');
-                return cache.addAll(STATIC_ASSETS);
-            })
+        caches.open(CACHE_NAME)
+            .then((cache) => cache.addAll(ASSETS_TO_CACHE))
     );
 });
 
-// Activate Service Worker and clean old caches
+// Activate Service Worker
 self.addEventListener('activate', (event) => {
     event.waitUntil(
         caches.keys().then((cacheNames) => {
             return Promise.all(
                 cacheNames.map((cacheName) => {
-                    if (![STATIC_CACHE_NAME, API_CACHE_NAME, IMAGE_CACHE_NAME].includes(cacheName)) {
-                        console.log('Deleting old cache:', cacheName);
+                    if (cacheName !== CACHE_NAME) {
                         return caches.delete(cacheName);
                     }
                 })
@@ -131,7 +127,19 @@ self.addEventListener('fetch', (event) => {
     
     // Handle API requests
     if (isApiRequest(request.url)) {
-        event.respondWith(networkFirst(request));
+        event.respondWith(
+            fetch(event.request)
+                .then((response) => {
+                    const clonedResponse = response.clone();
+                    caches.open(CACHE_NAME).then((cache) => {
+                        cache.put(event.request, clonedResponse);
+                    });
+                    return response;
+                })
+                .catch(() => {
+                    return caches.match(event.request);
+                })
+        );
         return;
     }
     
@@ -142,7 +150,15 @@ self.addEventListener('fetch', (event) => {
     }
     
     // Handle static assets
-    event.respondWith(cacheFirst(request));
+    event.respondWith(
+        caches.match(event.request)
+            .then((response) => {
+                if (response) {
+                    return response;
+                }
+                return fetch(event.request);
+            })
+    );
 });
 
 // Handle offline/online status

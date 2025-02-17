@@ -1,91 +1,110 @@
-# Weather PWA
+# Weather App PWA
 
-A modern Progressive Web Application for tracking weather conditions and capturing weather-related photos.
+A modern Progressive Web Application that provides real-time weather information with interactive features and offline capabilities.
 
 ## Features
 
-- **Real-time Weather Updates**
-  - Current temperature and conditions
-  - Animated weather icons based on conditions
-  - Smooth loading animations
-  - Automatic location-based updates
-  - Offline support with cached data
+### 1. Weather Information
+- Real-time weather data using Tomorrow.io API
+- Dynamic weather effects (rain and clouds) based on current conditions
+- Temperature and weather condition display
+- Automatic updates every minute
 
-- **Camera Integration**
-  - Capture weather-related photos
-  - Photo gallery with preview
-  - Environment-facing camera support
-  - Responsive image handling
+### 2. Weather History
+- Track weather changes over time
+- View history by different periods (24 hours, week, month)
+- Smart data storage to avoid duplicate entries
+- Visual indicators for weather changes
+- Weather condition icons
 
-- **Modern UI/UX**
-  - Clean and intuitive interface
-  - Smooth transitions and animations
-  - Weather-specific animations
-  - Responsive design for all devices
-  - Glass-morphism design elements
+### 3. Camera Integration
+- Capture photos using device camera
+- Photo gallery with delete functionality
+- Secure permission handling
 
-- **Progressive Web App Features**
-  - Installable on devices
-  - Offline functionality
-  - Push notifications support
-  - Responsive and mobile-first design
+### 4. Progressive Web App Features
+- Installable on devices
+- Offline functionality
+- Responsive design for all screen sizes
+- Service Worker for caching
+- Push notifications support
 
-## Technologies Used
+### 5. Native Device Features
+- Geolocation for accurate weather data
+- Camera access for photos
+- Push notifications
+- Local storage for history
 
-- HTML5, CSS3, JavaScript
-- Service Workers for offline support
+## Technical Details
+
+### Technologies Used
+- HTML5
+- CSS3 (with modern features like backdrop-filter)
+- Vanilla JavaScript (ES6+)
+- Service Workers
+- Local Storage API
+- Geolocation API
+- Media Devices API
+
+### APIs
 - Tomorrow.io Weather API
-- Font Awesome for icons
-- Google Fonts (Playfair Display, Poppins)
-- LocalStorage for data persistence
+- Browser APIs:
+  - Geolocation
+  - Camera
+  - Push Notifications
+  - Service Workers
+  - Local Storage
+
+### Performance
+- Efficient caching strategy
+- Minimal dependencies
+- Optimized for mobile devices
+- Smart data management
 
 ## Installation
 
-1. Clone the repository:
+1. Clone the repository
 ```bash
-git clone https://github.com/NovasSs19/WeatherProject.git
+git clone https://github.com/yourusername/weather-app.git
 ```
 
-2. Navigate to the project directory:
+2. Install dependencies (if any)
 ```bash
-cd WeatherProject
+# No npm dependencies required
 ```
 
-3. Replace the API key in `app.js`:
-```javascript
-const WEATHER_API = {
-    key: 'YOUR_API_KEY',
-    baseUrl: 'https://api.tomorrow.io/v4/weather/realtime'
-};
-```
+3. Set up API key
+- Get an API key from Tomorrow.io
+- Replace the API key in `app.js`
 
-4. Serve the application using a local server.
+4. Serve the application
+- Use a local server (e.g., Live Server in VS Code)
+- Must be served over HTTPS for PWA features
 
 ## Usage
 
-1. Allow location access when prompted
-2. View current weather conditions with animated icons
-3. Use the camera feature to capture weather-related photos
-4. Access settings to manage permissions
+1. Allow location access for weather data
+2. Enable camera permission for photo features
+3. Allow notifications for weather alerts
+4. View weather history in different time periods
+5. Take and manage photos
+6. Install the app on your device
 
-## Contributing
+## Project Structure
 
-1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/AmazingFeature`)
-3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
-4. Push to the branch (`git push origin feature/AmazingFeature`)
-5. Open a Pull Request
-
-## License
-
-This project is licensed under the MIT License - see the LICENSE file for details.
+```
+weather-app/
+├── index.html          # Main HTML file
+├── manifest.json       # PWA manifest
+├── sw.js              # Service Worker
+├── css/
+│   └── style.css      # Styles
+└── js/
+    └── app.js         # Main JavaScript
+```
 
 ## Author
+Dorukhan Özgür
 
-Dorukhan Ozgur
-
-## Acknowledgments
-
-- Tomorrow.io for weather data
-- Font Awesome for icons
-- Google Fonts for typography
+## License
+MIT License
