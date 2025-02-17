@@ -61,14 +61,25 @@ const WEATHER_API = {
 
 // Weather Feature
 async function getWeatherData(latitude, longitude) {
-    elements.loadingSpinner.classList.remove('hidden');
-    
     try {
-        const response = await fetch(`https://api.tomorrow.io/v4/weather/realtime?location=${latitude},${longitude}&apikey=${WEATHER_API.key}&units=metric`);
+        elements.weatherInfo.innerHTML = `
+            <div class="weather-card">
+                <h2>YOUR LOCATION</h2>
+                <div class="weather-icon">
+                    <div class="spinner"></div>
+                </div>
+                <h2>--°C</h2>
+                <p>Updating...</p>
+            </div>
+        `;
+        
+        const response = await fetch(`${WEATHER_API.baseUrl}?location=${latitude},${longitude}&apikey=${WEATHER_API.key}&units=metric`);
         if (!response.ok) throw new Error('Weather API error');
         
         const data = await response.json();
+        state.weatherData = data;
         updateWeatherUI(data);
+        
         localStorage.setItem('lastWeatherData', JSON.stringify({
             data,
             timestamp: Date.now()
@@ -83,8 +94,6 @@ async function getWeatherData(latitude, longitude) {
         } else {
             elements.weatherInfo.innerHTML = '<p class="error">⚠️ Weather data could not be retrieved</p>';
         }
-    } finally {
-        elements.loadingSpinner.classList.add('hidden');
     }
 }
 
@@ -103,6 +112,19 @@ function getWeatherIcon(values) {
         return '<div class="weather-icon weather-cloudy">☁️</div>';
     } else {
         return '<div class="weather-icon weather-sunny">☀️</div>';
+    }
+}
+
+function getWeatherCondition(values) {
+    const cloudCover = values.cloudCover;
+    const precipitationProbability = values.precipitationProbability;
+    
+    if (precipitationProbability > 50) {
+        return 'Rainy';
+    } else if (cloudCover > 50) {
+        return 'Cloudy';
+    } else {
+        return 'Sunny';
     }
 }
 
@@ -125,13 +147,16 @@ function updateWeatherUI(data, cachedTime = null) {
     `;
 
     // Reattach refresh button event listener
-    document.getElementById('refresh-weather').addEventListener('click', async () => {
-        if (state.location) {
-            await getWeatherData(state.location.latitude, state.location.longitude);
-        } else {
-            alert('Please enable location first');
-        }
-    });
+    const refreshButton = document.getElementById('refresh-weather');
+    if (refreshButton) {
+        refreshButton.addEventListener('click', async () => {
+            if (state.location) {
+                await getWeatherData(state.location.latitude, state.location.longitude);
+            } else {
+                await requestLocationPermission();
+            }
+        });
+    }
 }
 
 function formatDate(date) {
@@ -141,21 +166,6 @@ function formatDate(date) {
         day: 'numeric',
         month: 'long'
     }).format(date);
-}
-
-function getWeatherCondition(values) {
-    const cloudCover = values.cloudCover;
-    const precipitationProbability = values.precipitationProbability;
-    
-    if (precipitationProbability > 50) {
-        return 'Rainy';
-    } else if (cloudCover > 70) {
-        return 'Cloudy';
-    } else if (cloudCover > 30) {
-        return 'Partly Cloudy';
-    } else {
-        return 'Clear';
-    }
 }
 
 // Network status tracking
@@ -203,44 +213,28 @@ function lazyLoadImages() {
 // Location Feature
 async function requestLocationPermission() {
     try {
-        const result = await navigator.permissions.query({ name: 'geolocation' });
-        
-        if (result.state === 'granted') {
-            const position = await getCurrentPosition();
-            handleLocationSuccess(position);
-        } else if (result.state === 'prompt') {
-            elements.locationPermission.addEventListener('click', async () => {
-                try {
-                    const position = await getCurrentPosition();
-                    handleLocationSuccess(position);
-                } catch (error) {
-                    handlePermissionError('location', error);
-                }
-            });
-        } else {
-            handlePermissionError('location', new Error('Location permission denied'));
-        }
+        const position = await getCurrentPosition();
+        state.location = {
+            latitude: position.coords.latitude,
+            longitude: position.coords.longitude
+        };
+        updatePermissionStatus('location', true);
+        await getWeatherData(state.location.latitude, state.location.longitude);
+        return true;
     } catch (error) {
-        handlePermissionError('location', error);
+        console.error('Location permission error:', error);
+        updatePermissionStatus('location', false);
+        return false;
     }
-}
-
-function handleLocationSuccess(position) {
-    state.location = {
-        latitude: position.coords.latitude,
-        longitude: position.coords.longitude
-    };
-    
-    elements.locationPermission.disabled = true;
-    elements.locationPermission.classList.add('permission-granted');
-    elements.locationPermission.innerHTML = '<i class="fas fa-check"></i> Location Enabled';
-    
-    // Get weather data immediately
-    getWeatherData(state.location.latitude, state.location.longitude);
 }
 
 function getCurrentPosition() {
     return new Promise((resolve, reject) => {
+        if (!navigator.geolocation) {
+            reject(new Error('Geolocation is not supported'));
+            return;
+        }
+        
         navigator.geolocation.getCurrentPosition(resolve, reject, {
             enableHighAccuracy: true,
             timeout: 5000,
