@@ -148,73 +148,78 @@ function getCurrentPosition() {
 // Camera Feature
 async function requestCameraPermission() {
     try {
-        const result = await navigator.permissions.query({ name: 'camera' });
-        
-        if (result.state === 'granted') {
-            await initCamera();
-        } else if (result.state === 'prompt') {
-            elements.cameraPermission.addEventListener('click', async () => {
-                try {
-                    await initCamera();
-                } catch (error) {
-                    handlePermissionError('camera', error);
-                }
-            });
-        } else {
-            handlePermissionError('camera', new Error('Camera permission denied'));
-        }
-    } catch (error) {
-        handlePermissionError('camera', error);
-    }
-}
-
-async function initCamera() {
-    try {
         const stream = await navigator.mediaDevices.getUserMedia({ 
-            video: { 
-                width: { ideal: 320 },
-                height: { ideal: 240 }
-            } 
+            video: {
+                facingMode: 'environment'
+            },
+            audio: false 
         });
-        elements.cameraPreview.srcObject = stream;
-        elements.cameraPermission.disabled = true;
-        elements.cameraPermission.classList.add('permission-granted');
-        elements.cameraPermission.innerHTML = '<i class="fas fa-check"></i> Camera Enabled';
+        
+        // Başarılı olduğunda stream'i durdur
+        stream.getTracks().forEach(track => track.stop());
+        
+        updatePermissionStatus('camera', true);
+        return true;
     } catch (error) {
-        handlePermissionError('camera', error);
+        console.error('Kamera izni alınamadı:', error);
+        updatePermissionStatus('camera', false);
+        return false;
     }
 }
 
-elements.captureButton.addEventListener('click', () => {
-    const canvas = document.createElement('canvas');
-    canvas.width = elements.cameraPreview.videoWidth;
-    canvas.height = elements.cameraPreview.videoHeight;
-    
-    const context = canvas.getContext('2d');
-    context.drawImage(elements.cameraPreview, 0, 0, canvas.width, canvas.height);
-    
-    // Create photo container
-    const photoItem = document.createElement('div');
-    photoItem.className = 'photo-item';
-    
-    // Create photo image
-    const img = document.createElement('img');
-    img.src = canvas.toDataURL('image/jpeg');
-    photoItem.appendChild(img);
-    
-    // Create delete button
-    const deleteBtn = document.createElement('button');
-    deleteBtn.className = 'delete-btn';
-    deleteBtn.innerHTML = '×';
-    deleteBtn.addEventListener('click', () => {
-        if (confirm('Are you sure you want to delete this photo?')) {
-            photoItem.remove();
+async function checkCameraPermission() {
+    try {
+        // Mevcut izinleri kontrol et
+        const permissions = await navigator.permissions.query({ name: 'camera' });
+        
+        if (permissions.state === 'granted') {
+            updatePermissionStatus('camera', true);
+            return true;
+        } else if (permissions.state === 'prompt') {
+            return await requestCameraPermission();
+        } else {
+            updatePermissionStatus('camera', false);
+            return false;
         }
-    });
-    photoItem.appendChild(deleteBtn);
-    
-    // Add to gallery
-    elements.photoGallery.insertBefore(photoItem, elements.photoGallery.firstChild);
+    } catch (error) {
+        console.error('Kamera izni kontrolü başarısız:', error);
+        // İzin kontrolü desteklenmiyorsa, direkt olarak kamera erişimi iste
+        return await requestCameraPermission();
+    }
+}
+
+elements.captureButton.addEventListener('click', async () => {
+    if (await checkCameraPermission()) {
+        const canvas = document.createElement('canvas');
+        canvas.width = elements.cameraPreview.videoWidth;
+        canvas.height = elements.cameraPreview.videoHeight;
+        
+        const context = canvas.getContext('2d');
+        context.drawImage(elements.cameraPreview, 0, 0, canvas.width, canvas.height);
+        
+        // Create photo container
+        const photoItem = document.createElement('div');
+        photoItem.className = 'photo-item';
+        
+        // Create photo image
+        const img = document.createElement('img');
+        img.src = canvas.toDataURL('image/jpeg');
+        photoItem.appendChild(img);
+        
+        // Create delete button
+        const deleteBtn = document.createElement('button');
+        deleteBtn.className = 'delete-btn';
+        deleteBtn.innerHTML = '×';
+        deleteBtn.addEventListener('click', () => {
+            if (confirm('Are you sure you want to delete this photo?')) {
+                photoItem.remove();
+            }
+        });
+        photoItem.appendChild(deleteBtn);
+        
+        // Add to gallery
+        elements.photoGallery.insertBefore(photoItem, elements.photoGallery.firstChild);
+    }
 });
 
 // Notification Feature
@@ -305,7 +310,24 @@ window.addEventListener('offline', () => {
 // Initialize permissions
 document.addEventListener('DOMContentLoaded', () => {
     requestLocationPermission();
-    requestCameraPermission();
+    checkCameraPermission();
     
     elements.notificationPermission.addEventListener('click', requestNotificationPermission);
 });
+
+function updatePermissionStatus(permission, granted) {
+    const button = permission === 'location' ? elements.locationPermission :
+                  permission === 'camera' ? elements.cameraPermission :
+                  elements.notificationPermission;
+    
+    if (granted) {
+        button.disabled = true;
+        button.classList.add('permission-granted');
+        button.innerHTML = `<i class="fas fa-check"></i> ${permission.charAt(0).toUpperCase() + permission.slice(1)} Enabled`;
+    } else {
+        button.disabled = false;
+        button.classList.remove('permission-granted');
+        button.innerHTML = `<i class="fas fa-times"></i> ${permission.charAt(0).toUpperCase() + permission.slice(1)} Access Denied`;
+        button.style.color = '#f44336';
+    }
+}
