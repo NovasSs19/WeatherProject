@@ -26,10 +26,9 @@ const state = {
 
 // Weather API Configuration
 const WEATHER_API = {
-    key: 'cipJIPBjkoIWPy92BhaWjwKZyprvnglK',
+    key: 'XkaCch5a3j8XkpVFGMqNhGr2qG4yEtR7',
     baseUrl: 'https://api.tomorrow.io/v4/weather/realtime',
-    proxyUrl: 'https://cors-anywhere.herokuapp.com/',
-    updateInterval: 60 * 1000 // 1 minute
+    updateInterval: 60 * 1000
 };
 
 // Weather Icons
@@ -342,34 +341,44 @@ async function getWeatherData() {
         
         const { latitude, longitude } = state.location;
         const fields = ['temperature', 'cloudCover', 'precipitationProbability'];
-        const apiUrl = `${WEATHER_API.baseUrl}?location=${latitude},${longitude}&fields=${fields.join(',')}&apikey=${WEATHER_API.key}&units=metric`;
+        const url = `${WEATHER_API.baseUrl}?location=${latitude},${longitude}&fields=${fields.join(',')}&apikey=${WEATHER_API.key}&units=metric`;
         
-        // Use proxy only on GitHub Pages
-        const isGitHubPages = location.hostname.includes('github.io');
-        const url = isGitHubPages ? WEATHER_API.proxyUrl + apiUrl : apiUrl;
+        console.log('Fetching weather data...'); // Debug log
         
         const response = await fetch(url, {
             method: 'GET',
             headers: {
                 'Accept': 'application/json',
                 'Content-Type': 'application/json',
-                'Origin': window.location.origin
-            }
+                'Access-Control-Allow-Origin': '*',
+                'Access-Control-Allow-Methods': 'GET',
+                'apikey': WEATHER_API.key
+            },
+            mode: 'cors',
+            cache: 'no-store'
         });
         
         if (!response.ok) {
-            throw new Error('Weather API error: ' + response.statusText);
+            const errorText = await response.text();
+            console.error('API Error Response:', errorText);
+            throw new Error(`Weather API error: ${response.status} ${response.statusText}`);
         }
         
         const data = await response.json();
-        console.log('Weather data:', data); // Debug log
+        console.log('Weather data received:', data);
         
         if (!data || !data.data || !data.data.values) {
-            throw new Error('Invalid data format');
+            console.error('Invalid data format:', data);
+            throw new Error('Invalid data format received from API');
         }
         
         state.weatherData = data;
         updateWeatherUI(data);
+        
+        // Save to history if data is valid
+        if (data.data.values.temperature) {
+            saveWeatherData(data);
+        }
         
     } catch (error) {
         console.error('Weather data fetch error:', error);
@@ -396,9 +405,6 @@ function updateWeatherUI(data) {
     
     // Toggle weather effects based on condition
     toggleWeatherEffects(condition);
-    
-    // Save to history
-    saveWeatherData(data);
 }
 
 function getWeatherCondition(values) {
