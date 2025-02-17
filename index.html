@@ -7,64 +7,77 @@
     <link rel="manifest" href="manifest.json">
     <link rel="stylesheet" href="css/style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600&family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet">
     <meta name="theme-color" content="#2196f3">
     <link rel="apple-touch-icon" href="images/icons/icon-192x192.png">
     <meta http-equiv="Permissions-Policy" content="camera=*, geolocation=*, microphone=*">
 </head>
 <body>
-    <div id="offline-indicator" class="offline-banner hidden">
-        You are currently offline. Some features may be limited.
-    </div>
+    <div id="offline-indicator" class="offline-banner hidden"></div>
     <div id="loading-spinner" class="loading-spinner hidden">
         <div class="spinner"></div>
     </div>
 
     <header>
+        <div class="author">Dorukhan Ozgur</div>
         <nav>
-            <a href="#" data-view="weather" class="active">Weather</a>
-            <a href="#" data-view="photos">Photos</a>
-            <a href="#" data-view="settings">Settings</a>
+            <a href="#" data-view="weather" class="active">
+                <i class="fas fa-cloud-sun"></i>
+                <span>Weather</span>
+            </a>
+            <a href="#" data-view="photos">
+                <i class="fas fa-camera"></i>
+                <span>Photos</span>
+            </a>
+            <a href="#" data-view="settings">
+                <i class="fas fa-cog"></i>
+                <span>Settings</span>
+            </a>
         </nav>
     </header>
 
     <main>
         <!-- Weather View -->
         <div id="weather-view" class="view active">
-            <h2>Current Weather</h2>
-            <div id="weather-info">
-                <h3>Your Location</h3>
-                <div class="temperature">--°C</div>
-                <div class="description">Loading weather data...</div>
-                <button id="refresh-weather" class="btn">
-                    <i class="fas fa-sync-alt"></i> Refresh
-                </button>
+            <div class="glass-card">
+                <div id="weather-info" class="weather-container">
+                    <div class="weather-card loading">
+                        <div class="skeleton-loader"></div>
+                    </div>
+                </div>
             </div>
         </div>
 
         <!-- Photos View -->
         <div id="photos-view" class="view">
-            <h2>Weather Photos</h2>
-            <div class="camera-container">
-                <video id="camera-preview" autoplay playsinline></video>
-                <button id="capture-button" class="action-button">
-                    <i class="fas fa-camera"></i> TAKE PHOTO
-                </button>
+            <div class="glass-card">
+                <h2><i class="fas fa-camera"></i> Weather Photos</h2>
+                <div class="camera-container">
+                    <video id="camera-preview" autoplay playsinline></video>
+                    <button id="capture-button" class="action-button">
+                        <i class="fas fa-camera"></i> TAKE PHOTO
+                    </button>
+                </div>
+                <div id="photo-gallery" class="photos-grid"></div>
             </div>
-            <div id="photo-gallery" class="photos-grid"></div>
         </div>
 
         <!-- Settings View -->
         <div id="settings-view" class="view">
-            <h2>Settings</h2>
-            <button id="location-permission">
-                <i class="fas fa-map-marker-alt"></i> Enable Location
-            </button>
-            <button id="camera-permission">
-                <i class="fas fa-camera"></i> Enable Camera
-            </button>
-            <button id="notification-permission">
-                <i class="fas fa-bell"></i> Enable Notifications
-            </button>
+            <div class="glass-card">
+                <h2><i class="fas fa-cog"></i> Settings</h2>
+                <div class="permissions-container">
+                    <button id="location-permission" class="permission-button">
+                        <i class="fas fa-map-marker-alt"></i> Enable Location
+                    </button>
+                    <button id="camera-permission" class="permission-button">
+                        <i class="fas fa-camera"></i> Enable Camera
+                    </button>
+                    <button id="notification-permission" class="permission-button">
+                        <i class="fas fa-bell"></i> Enable Notifications
+                    </button>
+                </div>
+            </div>
         </div>
     </main>
 

@@ -1,10 +1,10 @@
 // App State
 const state = {
+    location: null,
     weatherData: null,
     photos: [],
     isOnline: navigator.onLine,
-    currentView: 'weather',
-    location: null
+    currentView: 'weather'
 };
 
 // DOM Elements
@@ -62,6 +62,7 @@ const WEATHER_API = {
 // Weather Feature
 async function getWeatherData(latitude, longitude) {
     try {
+        // Show loading state
         elements.weatherInfo.innerHTML = `
             <div class="weather-card">
                 <h2>YOUR LOCATION</h2>
@@ -73,27 +74,43 @@ async function getWeatherData(latitude, longitude) {
             </div>
         `;
         
+        // Make API request
         const response = await fetch(`${WEATHER_API.baseUrl}?location=${latitude},${longitude}&apikey=${WEATHER_API.key}&units=metric`);
         if (!response.ok) throw new Error('Weather API error');
         
         const data = await response.json();
         state.weatherData = data;
+        
+        // Update UI with new data
         updateWeatherUI(data);
         
+        // Cache the data
         localStorage.setItem('lastWeatherData', JSON.stringify({
             data,
             timestamp: Date.now()
         }));
+
+        return true;
     } catch (error) {
         console.error('Weather data fetch error:', error);
-        const cachedData = localStorage.getItem('lastWeatherData');
         
+        // Try to use cached data
+        const cachedData = localStorage.getItem('lastWeatherData');
         if (cachedData) {
             const { data, timestamp } = JSON.parse(cachedData);
             updateWeatherUI(data, new Date(timestamp));
         } else {
-            elements.weatherInfo.innerHTML = '<p class="error">⚠️ Weather data could not be retrieved</p>';
+            elements.weatherInfo.innerHTML = `
+                <div class="weather-card">
+                    <h2>YOUR LOCATION</h2>
+                    <p class="error">⚠️ Weather data could not be retrieved</p>
+                    <button id="refresh-weather" class="action-button">
+                        <i class="fas fa-sync-alt"></i> TRY AGAIN
+                    </button>
+                </div>
+            `;
         }
+        return false;
     }
 }
 
@@ -118,11 +135,17 @@ function getWeatherIcon(values) {
 function getWeatherCondition(values) {
     const cloudCover = values.cloudCover;
     const precipitationProbability = values.precipitationProbability;
+    const temperature = values.temperature;
     
     if (precipitationProbability > 50) {
+        if (temperature <= 0) {
+            return 'Snowy';
+        }
         return 'Rainy';
-    } else if (cloudCover > 50) {
+    } else if (cloudCover > 70) {
         return 'Cloudy';
+    } else if (cloudCover > 30) {
+        return 'Partly Cloudy';
     } else {
         return 'Sunny';
     }
@@ -146,7 +169,7 @@ function updateWeatherUI(data, cachedTime = null) {
         </div>
     `;
 
-    // Reattach refresh button event listener
+    // Attach refresh button event listener
     const refreshButton = document.getElementById('refresh-weather');
     if (refreshButton) {
         refreshButton.addEventListener('click', async () => {
