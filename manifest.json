@@ -6,6 +6,11 @@
     "display": "standalone",
     "background_color": "#ffffff",
     "theme_color": "#2196f3",
+    "permissions": [
+        "camera",
+        "geolocation",
+        "notifications"
+    ],
     "icons": [
         {
             "src": "images/icons/icon-72x72.png",
