@@ -9,32 +9,32 @@ const ASSETS_TO_CACHE = [
     '/css/style.css',
     '/js/app.js',
     '/manifest.json',
-    '/images/icons/icon-72x72.png',
-    '/images/icons/icon-96x96.png',
-    '/images/icons/icon-128x128.png',
-    '/images/icons/icon-144x144.png',
-    '/images/icons/icon-152x152.png',
-    '/images/icons/icon-192x192.png',
-    '/images/icons/icon-384x384.png',
-    '/images/icons/icon-512x512.png',
-    'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css'
+    '/images/icon-192.png',
+    '/images/icon-512.png'
 ];
 
-// Install Service Worker
+// Install event - cache assets
 self.addEventListener('install', (event) => {
     event.waitUntil(
         caches.open(CACHE_NAME)
-            .then((cache) => cache.addAll(ASSETS_TO_CACHE))
+            .then((cache) => {
+                console.log('Opened cache');
+                return cache.addAll(ASSETS_TO_CACHE);
+            })
+            .catch((error) => {
+                console.error('Cache installation failed:', error);
+            })
     );
 });
 
-// Activate Service Worker
+// Activate event - clean up old caches
 self.addEventListener('activate', (event) => {
     event.waitUntil(
         caches.keys().then((cacheNames) => {
             return Promise.all(
                 cacheNames.map((cacheName) => {
                     if (cacheName !== CACHE_NAME) {
+                        console.log('Deleting old cache:', cacheName);
                         return caches.delete(cacheName);
                     }
                 })
@@ -121,25 +121,13 @@ async function staleWhileRevalidate(request) {
     return cachedResponse || fetchPromise;
 }
 
-// Main fetch event handler
+// Fetch event - serve from cache or network
 self.addEventListener('fetch', (event) => {
     const request = event.request;
     
     // Handle API requests
     if (isApiRequest(request.url)) {
-        event.respondWith(
-            fetch(event.request)
-                .then((response) => {
-                    const clonedResponse = response.clone();
-                    caches.open(CACHE_NAME).then((cache) => {
-                        cache.put(event.request, clonedResponse);
-                    });
-                    return response;
-                })
-                .catch(() => {
-                    return caches.match(event.request);
-                })
-        );
+        event.respondWith(networkFirst(request));
         return;
     }
     
@@ -149,14 +137,39 @@ self.addEventListener('fetch', (event) => {
         return;
     }
     
-    // Handle static assets
     event.respondWith(
         caches.match(event.request)
             .then((response) => {
+                // Return cached version if available
                 if (response) {
                     return response;
                 }
-                return fetch(event.request);
+
+                // Clone the request because it can only be used once
+                const fetchRequest = event.request.clone();
+
+                // Make network request and cache the response
+                return fetch(fetchRequest).then((response) => {
+                    // Check if response is valid
+                    if (!response || response.status !== 200 || response.type !== 'basic') {
+                        return response;
+                    }
+
+                    // Clone the response because it can only be used once
+                    const responseToCache = response.clone();
+
+                    // Cache the fetched response
+                    caches.open(CACHE_NAME)
+                        .then((cache) => {
+                            cache.put(event.request, responseToCache);
+                        });
+
+                    return response;
+                });
+            })
+            .catch((error) => {
+                console.error('Fetch failed:', error);
+                // You could return a custom offline page here
             })
     );
 });
