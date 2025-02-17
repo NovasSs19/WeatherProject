@@ -2,90 +2,90 @@
 
 A modern Progressive Web Application for tracking weather conditions and capturing weather-related photos.
 
-## Key Features
+## Features
 
-### Weather Information
-- Real-time weather data via Tomorrow.io API
-- Location-based temperature and conditions
-- Automatic updates
-- Offline support
+- **Real-time Weather Updates**
+  - Current temperature and conditions
+  - Animated weather icons based on conditions
+  - Smooth loading animations
+  - Automatic location-based updates
+  - Offline support with cached data
 
-### Camera Integration
-- Built-in photo capture
-- Photo gallery with management
-- Easy deletion feature
+- **Camera Integration**
+  - Capture weather-related photos
+  - Photo gallery with preview
+  - Environment-facing camera support
+  - Responsive image handling
 
-### Progressive Features
-- Installable on devices
-- Works offline
-- Push notifications
-- Responsive design
+- **Modern UI/UX**
+  - Clean and intuitive interface
+  - Smooth transitions and animations
+  - Weather-specific animations
+  - Responsive design for all devices
+  - Glass-morphism design elements
 
-## Quick Start
+- **Progressive Web App Features**
+  - Installable on devices
+  - Offline functionality
+  - Push notifications support
+  - Responsive and mobile-first design
 
-1. **Clone and Install**
+## Technologies Used
+
+- HTML5, CSS3, JavaScript
+- Service Workers for offline support
+- Tomorrow.io Weather API
+- Font Awesome for icons
+- Google Fonts (Playfair Display, Poppins)
+- LocalStorage for data persistence
+
+## Installation
+
+1. Clone the repository:
 ```bash
-git clone https://github.com/USERNAME/REPO_NAME.git
-cd REPO_NAME
+git clone https://github.com/NovasSs19/WeatherProject.git
 ```
 
-2. **Configure API**
-- Add your Tomorrow.io API key in `js/app.js`
+2. Navigate to the project directory:
+```bash
+cd WeatherProject
+```
 
-3. **Run Locally**
-- Use a local server (e.g., VS Code Live Server)
-- HTTPS required for PWA features
+3. Replace the API key in `app.js`:
+```javascript
+const WEATHER_API = {
+    key: 'YOUR_API_KEY',
+    baseUrl: 'https://api.tomorrow.io/v4/weather/realtime'
+};
+```
 
-## App Structure
+4. Serve the application using a local server.
 
-### Main Views
-1. **Weather**
-   - Current temperature display
-   - Weather conditions
-   - Refresh option
+## Usage
 
-2. **Photos**
-   - Camera interface
-   - Photo capture
-   - Gallery view
-   - Delete option
+1. Allow location access when prompted
+2. View current weather conditions with animated icons
+3. Use the camera feature to capture weather-related photos
+4. Access settings to manage permissions
 
-3. **Settings**
-   - Permission management
-   - Feature toggles
-   - User preferences
+## Contributing
 
-## Technical Stack
-- HTML5/CSS3
-- JavaScript (ES6+)
-- Service Workers
-- Cache API
-- IndexedDB
-- Tomorrow.io API
-
-## Browser Compatibility
-- Chrome (recommended)
-- Firefox
-- Safari
-- Edge
-
-## Development Notes
-
-### Performance
-- Optimized for speed
-- Efficient caching
-- Fast load times
-- Lighthouse optimized
-
-### Security
-- HTTPS required
-- Secure permissions
-- Protected API keys
-- Safe data handling
-
-## Want to Contribute?
-1. Fork it
-2. Create your feature branch
-3. Commit changes
-4. Push to the branch
+1. Fork the repository
+2. Create your feature branch (`git checkout -b feature/AmazingFeature`)
+3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
+4. Push to the branch (`git push origin feature/AmazingFeature`)
 5. Open a Pull Request
+
+## License
+
+This project is licensed under the MIT License - see the LICENSE file for details.
+
+## Author
+
+Dorukhan Ozgur
+
+## Acknowledgments
+
+- Tomorrow.io for weather data
+- Font Awesome for icons
+- Google Fonts for typography

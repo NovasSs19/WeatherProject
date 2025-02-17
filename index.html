@@ -3,11 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Weather PWA</title>
+    <title>Weather App</title>
     <link rel="manifest" href="manifest.json">
     <link rel="stylesheet" href="css/style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
-    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700&family=Poppins:wght@400;600&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&display=swap" rel="stylesheet">
     <meta name="theme-color" content="#2196f3">
     <link rel="apple-touch-icon" href="images/icons/icon-192x192.png">
     <meta http-equiv="Permissions-Policy" content="camera=*, geolocation=*, microphone=*">
@@ -25,25 +25,34 @@
         </header>
 
         <main>
-            <!-- Weather View -->
             <div id="weather-view" class="view active">
-                <div id="weather-info" class="weather-container">
+                <div id="weather-info">
                     <div class="weather-card">
-                        <div class="weather-content">
-                            <h2>Loading Weather...</h2>
-                            <div class="weather-icon">
-                                <div class="loading-spinner"></div>
-                            </div>
-                            <div class="weather-details">
-                                <h3>--°C</h3>
-                                <p>Please wait...</p>
-                            </div>
+                        <h2>Loading Weather...</h2>
+                        <div class="weather-icon">
+                            <div class="loading-spinner"></div>
                         </div>
+                        <h3>--°C</h3>
+                        <p>Please wait...</p>
                     </div>
                 </div>
             </div>
 
-            <!-- Photos View -->
+            <div id="permissions" class="permissions">
+                <div class="permission-item" id="location-permission">
+                    <i class="fas fa-map-marker-alt"></i>
+                    <span>Location Access</span>
+                </div>
+                <div class="permission-item" id="camera-permission">
+                    <i class="fas fa-camera"></i>
+                    <span>Camera Access</span>
+                </div>
+                <div class="permission-item" id="notification-permission">
+                    <i class="fas fa-bell"></i>
+                    <span>Notifications</span>
+                </div>
+            </div>
+
             <div id="camera-view" class="view">
                 <div class="camera-container">
                     <video id="camera-preview" autoplay playsinline></video>
@@ -52,27 +61,6 @@
                     </button>
                 </div>
                 <div id="photo-gallery" class="photo-gallery"></div>
-            </div>
-
-            <!-- Settings View -->
-            <div id="settings-view" class="view">
-                <div class="settings-container">
-                    <div class="permission-card">
-                        <h3>Permissions</h3>
-                        <div id="location-permission" class="permission-item">
-                            <i class="fas fa-map-marker-alt"></i>
-                            <span>Location Access</span>
-                        </div>
-                        <div id="camera-permission" class="permission-item">
-                            <i class="fas fa-camera"></i>
-                            <span>Camera Access</span>
-                        </div>
-                        <div id="notification-permission" class="permission-item">
-                            <i class="fas fa-bell"></i>
-                            <span>Notifications</span>
-                        </div>
-                    </div>
-                </div>
             </div>
         </main>
 
@@ -85,7 +73,7 @@
                 <i class="fas fa-camera"></i>
                 <span>Camera</span>
             </button>
-            <button class="nav-button" data-view="settings">
+            <button class="nav-button" data-view="permissions">
                 <i class="fas fa-cog"></i>
                 <span>Settings</span>
             </button>
