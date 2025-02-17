@@ -146,20 +146,42 @@ function getCurrentPosition() {
 }
 
 // Camera Feature
-async function requestCameraPermission() {
+let videoStream = null;
+
+async function startCamera() {
     try {
-        const stream = await navigator.mediaDevices.getUserMedia({ 
+        // Varolan stream'i kapat
+        if (videoStream) {
+            videoStream.getTracks().forEach(track => track.stop());
+        }
+
+        // Yeni stream al
+        videoStream = await navigator.mediaDevices.getUserMedia({
             video: {
-                facingMode: 'environment'
+                facingMode: 'environment',
+                width: { ideal: 1280 },
+                height: { ideal: 720 }
             },
-            audio: false 
+            audio: false
         });
-        
-        // Başarılı olduğunda stream'i durdur
-        stream.getTracks().forEach(track => track.stop());
+
+        // Video elementine bağla
+        elements.cameraPreview.srcObject = videoStream;
+        await elements.cameraPreview.play();
         
         updatePermissionStatus('camera', true);
         return true;
+    } catch (error) {
+        console.error('Kamera başlatılamadı:', error);
+        updatePermissionStatus('camera', false);
+        return false;
+    }
+}
+
+async function requestCameraPermission() {
+    try {
+        const result = await startCamera();
+        return result;
     } catch (error) {
         console.error('Kamera izni alınamadı:', error);
         updatePermissionStatus('camera', false);
@@ -169,12 +191,10 @@ async function requestCameraPermission() {
 
 async function checkCameraPermission() {
     try {
-        // Mevcut izinleri kontrol et
         const permissions = await navigator.permissions.query({ name: 'camera' });
         
         if (permissions.state === 'granted') {
-            updatePermissionStatus('camera', true);
-            return true;
+            return await startCamera();
         } else if (permissions.state === 'prompt') {
             return await requestCameraPermission();
         } else {
@@ -183,13 +203,16 @@ async function checkCameraPermission() {
         }
     } catch (error) {
         console.error('Kamera izni kontrolü başarısız:', error);
-        // İzin kontrolü desteklenmiyorsa, direkt olarak kamera erişimi iste
         return await requestCameraPermission();
     }
 }
 
 elements.captureButton.addEventListener('click', async () => {
-    if (await checkCameraPermission()) {
+    if (!videoStream) {
+        await checkCameraPermission();
+    }
+    
+    if (videoStream && videoStream.active) {
         const canvas = document.createElement('canvas');
         canvas.width = elements.cameraPreview.videoWidth;
         canvas.height = elements.cameraPreview.videoHeight;
