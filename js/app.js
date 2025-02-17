@@ -361,9 +361,17 @@ async function getWeatherData() {
         showLoading();
         
         const { latitude, longitude } = state.location;
-        const response = await fetch(
-            `${WEATHER_API.baseUrl}?location=${latitude},${longitude}&apikey=${WEATHER_API.key}&units=metric`
-        );
+        const url = `${WEATHER_API.baseUrl}?location=${latitude},${longitude}&apikey=${WEATHER_API.key}&units=metric`;
+        
+        const response = await fetch(url, {
+            method: 'GET',
+            headers: {
+                'Accept': 'application/json',
+                'Content-Type': 'application/json'
+            },
+            mode: 'cors',
+            cache: 'no-cache'
+        });
         
         if (!response.ok) throw new Error('Weather API error');
         
