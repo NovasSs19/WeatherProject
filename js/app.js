@@ -1,10 +1,10 @@
 // App State
-const state = {
+let state = {
     location: null,
     weatherData: null,
     photos: [],
-    isOnline: navigator.onLine,
-    currentView: 'weather'
+    currentView: 'weather',
+    isOnline: navigator.onLine
 };
 
 // DOM Elements
@@ -51,6 +51,11 @@ function switchView(view) {
     });
     
     state.currentView = view;
+    
+    // Handle view-specific initialization
+    if (view === 'camera') {
+        initializeCamera();
+    }
 }
 
 // Weather API Configuration
@@ -60,57 +65,78 @@ const WEATHER_API = {
 };
 
 // Weather Feature
-async function getWeatherData(latitude, longitude) {
+async function getWeatherData() {
+    if (!state.location) {
+        console.error('Location not available');
+        return;
+    }
+
+    const { latitude, longitude } = state.location;
+    
     try {
-        // Show loading state
-        elements.weatherInfo.innerHTML = `
-            <div class="weather-card">
-                <h2>YOUR LOCATION</h2>
-                <div class="weather-icon">
-                    <div class="spinner"></div>
-                </div>
-                <h2>--°C</h2>
-                <p>Updating...</p>
-            </div>
-        `;
+        showLoadingState();
         
-        // Make API request
-        const response = await fetch(`${WEATHER_API.baseUrl}?location=${latitude},${longitude}&apikey=${WEATHER_API.key}&units=metric`);
+        const response = await fetch(
+            `${WEATHER_API.baseUrl}?location=${latitude},${longitude}&apikey=${WEATHER_API.key}&units=metric`
+        );
+        
         if (!response.ok) throw new Error('Weather API error');
         
         const data = await response.json();
         state.weatherData = data;
         
-        // Update UI with new data
         updateWeatherUI(data);
+        cacheWeatherData(data);
         
-        // Cache the data
-        localStorage.setItem('lastWeatherData', JSON.stringify({
-            data,
-            timestamp: Date.now()
-        }));
-
         return true;
     } catch (error) {
         console.error('Weather data fetch error:', error);
-        
-        // Try to use cached data
-        const cachedData = localStorage.getItem('lastWeatherData');
-        if (cachedData) {
-            const { data, timestamp } = JSON.parse(cachedData);
-            updateWeatherUI(data, new Date(timestamp));
-        } else {
-            elements.weatherInfo.innerHTML = `
-                <div class="weather-card">
-                    <h2>YOUR LOCATION</h2>
-                    <p class="error">⚠️ Weather data could not be retrieved</p>
-                    <button id="refresh-weather" class="action-button">
-                        <i class="fas fa-sync-alt"></i> TRY AGAIN
-                    </button>
-                </div>
-            `;
-        }
+        handleWeatherError();
         return false;
+    }
+}
+
+function showLoadingState() {
+    elements.weatherInfo.innerHTML = `
+        <div class="weather-card">
+            <div class="weather-content">
+                <h2>Loading Weather...</h2>
+                <div class="weather-icon">
+                    <div class="loading-spinner"></div>
+                </div>
+                <div class="weather-details">
+                    <h3>--°C</h3>
+                    <p>Please wait...</p>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+function handleWeatherError() {
+    const cachedData = localStorage.getItem('weatherData');
+    if (cachedData) {
+        const { data, timestamp } = JSON.parse(cachedData);
+        updateWeatherUI(data, new Date(timestamp));
+    } else {
+        elements.weatherInfo.innerHTML = `
+            <div class="weather-card">
+                <div class="weather-content">
+                    <h2>Weather Unavailable</h2>
+                    <div class="weather-icon">
+                        <i class="fas fa-exclamation-circle"></i>
+                    </div>
+                    <div class="weather-details">
+                        <p>Could not retrieve weather data</p>
+                        <button id="retry-weather" class="action-button">
+                            <i class="fas fa-sync-alt"></i> Retry
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        document.getElementById('retry-weather')?.addEventListener('click', getWeatherData);
     }
 }
 
@@ -122,14 +148,39 @@ function getWeatherIcon(values) {
     if (precipitationProbability > 50) {
         if (temperature <= 0) {
             return '<div class="weather-icon weather-snowy">❄️</div>';
-        } else {
-            return '<div class="weather-icon weather-rainy">🌧️</div>';
         }
-    } else if (cloudCover > 50) {
+        return '<div class="weather-icon weather-rainy">🌧️</div>';
+    } else if (cloudCover > 70) {
         return '<div class="weather-icon weather-cloudy">☁️</div>';
     } else {
         return '<div class="weather-icon weather-sunny">☀️</div>';
     }
+}
+
+function updateWeatherUI(data, cachedTime = null) {
+    const values = data.data.values;
+    const temp = Math.round(values.temperature);
+    const conditions = getWeatherCondition(values);
+    const weatherIcon = getWeatherIcon(values);
+    
+    elements.weatherInfo.innerHTML = `
+        <div class="weather-card">
+            <div class="weather-content">
+                <h2>Current Weather</h2>
+                ${weatherIcon}
+                <div class="weather-details">
+                    <h3>${temp}°C</h3>
+                    <p>${conditions}</p>
+                    ${cachedTime ? `<p class="cached-info">Last updated: ${formatTime(cachedTime)}</p>` : ''}
+                    <button id="refresh-weather" class="action-button">
+                        <i class="fas fa-sync-alt"></i> Refresh
+                    </button>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    document.getElementById('refresh-weather')?.addEventListener('click', getWeatherData);
 }
 
 function getWeatherCondition(values) {
@@ -138,9 +189,7 @@ function getWeatherCondition(values) {
     const temperature = values.temperature;
     
     if (precipitationProbability > 50) {
-        if (temperature <= 0) {
-            return 'Snowy';
-        }
+        if (temperature <= 0) return 'Snowy';
         return 'Rainy';
     } else if (cloudCover > 70) {
         return 'Cloudy';
@@ -151,45 +200,75 @@ function getWeatherCondition(values) {
     }
 }
 
-function updateWeatherUI(data, cachedTime = null) {
-    const temp = data.data.values.temperature;
-    const conditions = getWeatherCondition(data.data.values);
-    const weatherIcon = getWeatherIcon(data.data.values);
-    
-    elements.weatherInfo.innerHTML = `
-        <div class="weather-card">
-            <h2>YOUR LOCATION</h2>
-            ${weatherIcon}
-            <h2>${Math.round(temp)}°C</h2>
-            <p>${conditions}</p>
-            ${cachedTime ? `<p class="cached-info">Last updated: ${formatDate(cachedTime)}</p>` : ''}
-            <button id="refresh-weather" class="action-button">
-                <i class="fas fa-sync-alt"></i> REFRESH
-            </button>
-        </div>
-    `;
-
-    // Attach refresh button event listener
-    const refreshButton = document.getElementById('refresh-weather');
-    if (refreshButton) {
-        refreshButton.addEventListener('click', async () => {
-            if (state.location) {
-                await getWeatherData(state.location.latitude, state.location.longitude);
-            } else {
-                await requestLocationPermission();
-            }
-        });
-    }
-}
-
-function formatDate(date) {
+function formatTime(date) {
     return new Intl.DateTimeFormat('en-US', {
         hour: 'numeric',
         minute: 'numeric',
-        day: 'numeric',
-        month: 'long'
+        hour12: true
     }).format(date);
 }
+
+function cacheWeatherData(data) {
+    localStorage.setItem('weatherData', JSON.stringify({
+        data,
+        timestamp: Date.now()
+    }));
+}
+
+// Location Feature
+async function requestLocationPermission() {
+    try {
+        const position = await getCurrentPosition();
+        state.location = {
+            latitude: position.coords.latitude,
+            longitude: position.coords.longitude
+        };
+        elements.locationPermission.classList.add('enabled');
+        await getWeatherData();
+        return true;
+    } catch (error) {
+        console.error('Location permission error:', error);
+        elements.locationPermission.classList.remove('enabled');
+        return false;
+    }
+}
+
+function getCurrentPosition() {
+    return new Promise((resolve, reject) => {
+        navigator.geolocation.getCurrentPosition(resolve, reject, {
+            enableHighAccuracy: true,
+            timeout: 5000,
+            maximumAge: 0
+        });
+    });
+}
+
+// Camera Feature
+async function initializeCamera() {
+    try {
+        const stream = await navigator.mediaDevices.getUserMedia({
+            video: {
+                facingMode: 'environment',
+                width: { ideal: 1280 },
+                height: { ideal: 720 }
+            },
+            audio: false
+        });
+        
+        elements.cameraPreview.srcObject = stream;
+        elements.cameraPermission.classList.add('enabled');
+        return true;
+    } catch (error) {
+        console.error('Camera permission error:', error);
+        elements.cameraPermission.classList.remove('enabled');
+        return false;
+    }
+}
+
+// Event Listeners
+elements.locationPermission.addEventListener('click', requestLocationPermission);
+elements.cameraPermission.addEventListener('click', initializeCamera);
+elements.captureButton.addEventListener('click', capturePhoto);
 
 // Network status tracking
 let isOnline = navigator.onLine;
@@ -233,139 +312,6 @@ function lazyLoadImages() {
     images.forEach(img => imageObserver.observe(img));
 }
 
-// Location Feature
-async function requestLocationPermission() {
-    try {
-        const position = await getCurrentPosition();
-        state.location = {
-            latitude: position.coords.latitude,
-            longitude: position.coords.longitude
-        };
-        updatePermissionStatus('location', true);
-        await getWeatherData(state.location.latitude, state.location.longitude);
-        return true;
-    } catch (error) {
-        console.error('Location permission error:', error);
-        updatePermissionStatus('location', false);
-        return false;
-    }
-}
-
-function getCurrentPosition() {
-    return new Promise((resolve, reject) => {
-        if (!navigator.geolocation) {
-            reject(new Error('Geolocation is not supported'));
-            return;
-        }
-        
-        navigator.geolocation.getCurrentPosition(resolve, reject, {
-            enableHighAccuracy: true,
-            timeout: 5000,
-            maximumAge: 0
-        });
-    });
-}
-
-// Camera Feature
-let videoStream = null;
-
-async function startCamera() {
-    try {
-        // Close existing stream
-        if (videoStream) {
-            videoStream.getTracks().forEach(track => track.stop());
-        }
-
-        // Get new stream
-        videoStream = await navigator.mediaDevices.getUserMedia({
-            video: {
-                facingMode: 'environment',
-                width: { ideal: 1280 },
-                height: { ideal: 720 }
-            },
-            audio: false
-        });
-
-        // Attach to video element
-        elements.cameraPreview.srcObject = videoStream;
-        await elements.cameraPreview.play();
-        
-        updatePermissionStatus('camera', true);
-        return true;
-    } catch (error) {
-        console.error('Camera could not be started:', error);
-        updatePermissionStatus('camera', false);
-        return false;
-    }
-}
-
-async function requestCameraPermission() {
-    try {
-        const result = await startCamera();
-        return result;
-    } catch (error) {
-        console.error('Camera permission could not be obtained:', error);
-        updatePermissionStatus('camera', false);
-        return false;
-    }
-}
-
-async function checkCameraPermission() {
-    try {
-        const permissions = await navigator.permissions.query({ name: 'camera' });
-        
-        if (permissions.state === 'granted') {
-            return await startCamera();
-        } else if (permissions.state === 'prompt') {
-            return await requestCameraPermission();
-        } else {
-            updatePermissionStatus('camera', false);
-            return false;
-        }
-    } catch (error) {
-        console.error('Camera permission check failed:', error);
-        return await requestCameraPermission();
-    }
-}
-
-elements.captureButton.addEventListener('click', async () => {
-    if (!videoStream) {
-        await checkCameraPermission();
-    }
-    
-    if (videoStream && videoStream.active) {
-        const canvas = document.createElement('canvas');
-        canvas.width = elements.cameraPreview.videoWidth;
-        canvas.height = elements.cameraPreview.videoHeight;
-        
-        const context = canvas.getContext('2d');
-        context.drawImage(elements.cameraPreview, 0, 0, canvas.width, canvas.height);
-        
-        // Create photo container
-        const photoItem = document.createElement('div');
-        photoItem.className = 'photo-item';
-        
-        // Create photo image
-        const img = document.createElement('img');
-        img.src = canvas.toDataURL('image/jpeg');
-        photoItem.appendChild(img);
-        
-        // Create delete button
-        const deleteBtn = document.createElement('button');
-        deleteBtn.className = 'delete-btn';
-        deleteBtn.innerHTML = '×';
-        deleteBtn.addEventListener('click', () => {
-            if (confirm('Are you sure you want to delete this photo?')) {
-                photoItem.remove();
-            }
-        });
-        photoItem.appendChild(deleteBtn);
-        
-        // Add to gallery
-        elements.photoGallery.insertBefore(photoItem, elements.photoGallery.firstChild);
-    }
-});
-
 // Notification Feature
 async function requestNotificationPermission() {
     try {
@@ -397,7 +343,7 @@ function handlePermissionError(type, error) {
 elements.refreshWeather.addEventListener('click', async () => {
     if (state.location) {
         elements.description.textContent = 'Updating...';
-        await getWeatherData(state.location.latitude, state.location.longitude);
+        await getWeatherData();
     } else {
         alert('Please enable location first');
     }
@@ -442,8 +388,8 @@ async function loadPhotosFromIndexedDB() {
 
 // Initialize permissions
 document.addEventListener('DOMContentLoaded', async () => {
-    requestLocationPermission();
-    checkCameraPermission();
+    await requestLocationPermission();
+    initializeCamera();
     
     elements.notificationPermission.addEventListener('click', requestNotificationPermission);
     
