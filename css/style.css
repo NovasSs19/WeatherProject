@@ -124,29 +124,27 @@ main {
 }
 
 .permission-button {
-    background: var(--button-color);
+    background: #2196F3;
     color: white;
     border: none;
-    padding: 12px 20px;
+    padding: 12px 24px;
     border-radius: 25px;
     cursor: pointer;
-    font-family: 'Poppins', sans-serif;
-    font-size: 1rem;
-    font-weight: 500;
     transition: all 0.3s ease;
     width: 100%;
+    margin: 5px 0;
+    font-size: 1em;
     box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
 }
 
 .permission-button:hover {
     background: #1976D2;
-    transform: translateY(-1px);
+    transform: translateY(-2px);
     box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
 }
 
 .permission-button.enabled {
-    background: #4CAF50 !important;
-    color: white;
+    background: #4CAF50;
 }
 
 /* Loading Spinner */
@@ -169,7 +167,7 @@ main {
 .camera-section {
     display: none;
     width: 100%;
-    max-width: 800px;
+    max-width: 600px;
     margin: 0 auto;
     padding: 20px;
 }
@@ -177,17 +175,21 @@ main {
 .camera-container {
     position: relative;
     width: 100%;
+    max-width: 500px;
+    margin: 0 auto;
     border-radius: 20px;
     overflow: hidden;
     background: rgba(0, 0, 0, 0.1);
     margin-bottom: 20px;
+    aspect-ratio: 4/3;
 }
 
-#camera-feed {
+#cameraFeed {
     width: 100%;
-    height: auto;
+    height: 100%;
+    object-fit: cover;
     display: block;
-    transform: scaleX(-1); /* Mirror effect for front camera */
+    transform: none; /* Kamera yönünü düzeltmek için ayna efektini kaldırdık */
 }
 
 .capture-button {
@@ -331,36 +333,30 @@ main {
 
 .history-filters {
     display: flex;
-    justify-content: center;
-    gap: 15px;
-    margin-bottom: 25px;
-    padding: 5px;
-    background: rgba(255, 255, 255, 0.1);
-    border-radius: 30px;
-    backdrop-filter: blur(10px);
+    gap: 10px;
+    margin-bottom: 20px;
 }
 
 .filter-button {
-    background: transparent;
+    padding: 8px 16px;
     border: none;
-    padding: 8px 20px;
     border-radius: 20px;
-    color: rgba(0, 0, 0, 0.7);
-    font-family: 'Poppins', sans-serif;
-    font-size: 0.9rem;
-    font-weight: 500;
+    background: #2196F3;
+    color: white;
     cursor: pointer;
     transition: all 0.3s ease;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
 }
 
 .filter-button:hover {
-    background: rgba(255, 255, 255, 0.2);
+    background: #1976D2;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
 }
 
 .filter-button.active {
-    background: #2196F3;
-    color: white;
-    box-shadow: 0 2px 4px rgba(33, 150, 243, 0.3);
+    background: #4CAF50;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
 }
 
 .history-list {
@@ -370,18 +366,39 @@ main {
 }
 
 .history-item {
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 10px;
+    padding: 15px;
+    margin-bottom: 10px;
+    color: white;
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 15px;
-    margin-bottom: 10px;
-    background: rgba(255, 255, 255, 0.8);
-    border-radius: 12px;
-    transition: all 0.3s ease;
+    backdrop-filter: blur(5px);
+}
+
+.history-info {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+}
+
+.history-temp {
+    font-size: 1.2em;
+    font-weight: bold;
+}
+
+.history-condition {
+    color: rgba(255, 255, 255, 0.8);
+}
+
+.history-time {
+    font-size: 0.9em;
+    color: rgba(255, 255, 255, 0.6);
 }
 
 .history-item:hover {
-    background: rgba(255, 255, 255, 0.9);
+    background: rgba(255, 255, 255, 0.2);
     transform: translateY(-2px);
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
@@ -544,92 +561,6 @@ main {
 .rain:nth-child(8) { left: 80%; animation-duration: 2.3s; animation-delay: 1.4s; }
 .rain:nth-child(9) { left: 90%; animation-duration: 1.9s; animation-delay: 1.6s; }
 .rain:nth-child(10) { left: 95%; animation-duration: 2.1s; animation-delay: 1.8s; }
-
-/* Permission Buttons */
-.permission-button {
-    background: #2196F3;
-    color: white;
-    border: none;
-    padding: 12px 24px;
-    border-radius: 25px;
-    cursor: pointer;
-    margin: 8px;
-    transition: all 0.3s ease;
-}
-
-.permission-button:hover {
-    background: #1976D2;
-    transform: translateY(-2px);
-}
-
-.permission-button.enabled {
-    background: #4CAF50;
-}
-
-/* History Section */
-.history-filters {
-    display: flex;
-    justify-content: center;
-    gap: 10px;
-    margin-bottom: 20px;
-}
-
-.filter-button {
-    padding: 8px 16px;
-    border: none;
-    border-radius: 20px;
-    background: #2196F3;
-    color: white;
-    cursor: pointer;
-    transition: all 0.3s ease;
-}
-
-.filter-button:hover {
-    background: #1976D2;
-}
-
-.filter-button.active {
-    background: #4CAF50;
-}
-
-.history-list {
-    max-height: 400px;
-    overflow-y: auto;
-    padding: 10px;
-}
-
-.history-item {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 12px;
-    margin: 8px 0;
-    background: rgba(255, 255, 255, 0.1);
-    border-radius: 10px;
-    backdrop-filter: blur(5px);
-}
-
-.history-time {
-    font-size: 0.9em;
-    color: #B0BEC5;
-}
-
-.history-temp {
-    font-size: 1.2em;
-    font-weight: bold;
-}
-
-.history-condition {
-    display: flex;
-    align-items: center;
-    gap: 5px;
-}
-
-.no-data {
-    text-align: center;
-    padding: 20px;
-    color: #B0BEC5;
-}
 
 /* Responsive Design */
 @media (max-width: 600px) {

@@ -1,4 +1,4 @@
-const CACHE_NAME = 'weather-app-v1';
+const CACHE_NAME = 'weather-app-v2';
 const API_CACHE_NAME = 'weather-api-cache-v1';
 const STATIC_CACHE_NAME = 'weather-static-cache-v1';
 const IMAGE_CACHE_NAME = 'weather-image-cache-v1';
@@ -9,28 +9,29 @@ const ASSETS_TO_CACHE = [
     './css/style.css',
     './js/app.js',
     './manifest.json',
-    './images/icon-192.png',
-    './images/icon-512.png'
+    'https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&display=swap',
+    'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css'
 ];
 
 // Install event - cache assets
 self.addEventListener('install', (event) => {
+    console.log('Service Worker installing...');
     event.waitUntil(
         caches.open(CACHE_NAME)
             .then((cache) => {
-                console.log('Opened cache');
+                console.log('Caching app shell...');
                 return cache.addAll(ASSETS_TO_CACHE);
             })
             .catch((error) => {
                 console.error('Cache installation failed:', error);
             })
     );
-    // Activate worker immediately
     self.skipWaiting();
 });
 
 // Activate event - clean up old caches
 self.addEventListener('activate', (event) => {
+    console.log('Service Worker activating...');
     event.waitUntil(
         caches.keys().then((cacheNames) => {
             return Promise.all(
@@ -43,7 +44,6 @@ self.addEventListener('activate', (event) => {
             );
         })
     );
-    // Claim all clients immediately
     event.waitUntil(self.clients.claim());
 });
 
@@ -129,6 +129,13 @@ async function staleWhileRevalidate(request) {
 self.addEventListener('fetch', (event) => {
     const request = event.request;
     
+    // Skip cross-origin requests
+    if (!event.request.url.startsWith(self.location.origin) && 
+        !event.request.url.startsWith('https://fonts.googleapis.com') && 
+        !event.request.url.startsWith('https://cdnjs.cloudflare.com')) {
+        return;
+    }
+
     // Handle API requests
     if (isApiRequest(request.url)) {
         event.respondWith(networkFirst(request));
@@ -144,37 +151,33 @@ self.addEventListener('fetch', (event) => {
     event.respondWith(
         caches.match(event.request)
             .then((response) => {
-                // Return cached version if available
                 if (response) {
-                    return response;
+                    return response; // Cache hit
                 }
 
-                // Clone the request because it can only be used once
-                const fetchRequest = event.request.clone();
+                return fetch(event.request.clone())
+                    .then((response) => {
+                        if (!response || response.status !== 200) {
+                            return response;
+                        }
 
-                // Make network request and cache the response
-                return fetch(fetchRequest).then((response) => {
-                    // Check if response is valid
-                    if (!response || response.status !== 200 || response.type !== 'basic') {
+                        // Cache successful responses
+                        const responseToCache = response.clone();
+                        caches.open(CACHE_NAME)
+                            .then((cache) => {
+                                cache.put(event.request, responseToCache);
+                            });
+
                         return response;
-                    }
-
-                    // Clone the response because it can only be used once
-                    const responseToCache = response.clone();
-
-                    // Cache the fetched response
-                    caches.open(CACHE_NAME)
-                        .then((cache) => {
-                            cache.put(event.request, responseToCache);
-                        });
-
-                    return response;
-                });
-            })
-            .catch((error) => {
-                console.error('Fetch failed:', error);
-                // Return offline fallback
-                return caches.match('./index.html');
+                    })
+                    .catch((error) => {
+                        console.error('Fetch failed:', error);
+                        // Return offline page for navigation requests
+                        if (event.request.mode === 'navigate') {
+                            return caches.match('./index.html');
+                        }
+                        return new Response('Offline content not available');
+                    });
             })
     );
 });

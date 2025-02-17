@@ -22,17 +22,16 @@ const state = {
 const elements = {
     temperature: document.querySelector('.temperature'),
     statusText: document.querySelector('.status-text'),
-    locationButton: document.getElementById('locationButton'),
-    cameraButton: document.getElementById('cameraButton'),
-    notificationButton: document.getElementById('notificationButton'),
+    locationButton: document.getElementById('enableLocation'),
+    cameraButton: document.getElementById('enableCamera'),
+    notificationButton: document.getElementById('enableNotifications'),
+    cameraFeed: document.getElementById('cameraFeed'),
+    takePhotoButton: document.getElementById('takePhotoButton'),
+    photoGallery: document.getElementById('photoGallery'),
+    historyList: document.getElementById('history-list'),
     weatherView: document.getElementById('weather-view'),
     cameraView: document.getElementById('camera-view'),
-    historyView: document.getElementById('history-view'),
-    cameraFeed: document.getElementById('camera-feed'),
-    photoGallery: document.getElementById('photo-gallery'),
-    historyList: document.getElementById('history-list'),
-    loadingSpinner: document.querySelector('.loading-spinner'),
-    takePhotoButton: document.getElementById('take-photo')
+    historyView: document.getElementById('history-view')
 };
 
 // State
@@ -40,270 +39,274 @@ let weatherUpdateTimer = null;
 let cameraStream = null;
 
 // Navigation
-document.querySelectorAll('.nav-button').forEach(button => {
-    button.addEventListener('click', async () => {
-        const viewId = button.dataset.view;
-        
-        // Remove active class from all buttons and views
-        document.querySelectorAll('.nav-button').forEach(btn => btn.classList.remove('active'));
-        document.querySelectorAll('.view').forEach(view => view.classList.remove('active'));
-        
-        // Add active class to clicked button and corresponding view
-        button.classList.add('active');
-        document.getElementById(viewId + '-view').classList.add('active');
-        
-        // Handle camera when switching views
-        if (viewId === 'camera') {
-            if (elements.cameraButton.classList.contains('enabled')) {
-                await initCamera();
+document.addEventListener('DOMContentLoaded', () => {
+    // Add event listeners
+    if (elements.locationButton) {
+        elements.locationButton.addEventListener('click', async () => {
+            try {
+                elements.locationButton.textContent = "Getting location...";
+                const position = await getCurrentPosition();
+                elements.locationButton.textContent = "Location Enabled";
+                elements.locationButton.classList.add('enabled');
+                updateWeather(position.coords);
+                showMessage('Location enabled successfully', 'success');
+            } catch (error) {
+                console.error('Location error:', error);
+                elements.locationButton.textContent = "Enable Location";
+                showMessage('Could not get location: ' + error.message, 'error');
             }
-        } else {
-            await stopCamera();
-        }
+        });
+    }
+
+    if (elements.cameraButton) {
+        elements.cameraButton.addEventListener('click', async () => {
+            if (elements.cameraButton.classList.contains('enabled')) {
+                await stopCamera();
+                elements.cameraButton.classList.remove('enabled');
+                elements.cameraButton.textContent = 'Enable Camera';
+                document.querySelector('.camera-section').style.display = 'none';
+                showMessage('Camera disabled', 'info');
+            } else {
+                try {
+                    const success = await initCamera();
+                    if (success) {
+                        elements.cameraButton.classList.add('enabled');
+                        elements.cameraButton.textContent = 'Camera Enabled';
+                        document.querySelector('.camera-section').style.display = 'block';
+                        showMessage('Camera enabled successfully', 'success');
+                    }
+                } catch (error) {
+                    console.error('Camera error:', error);
+                    showMessage('Camera permission denied', 'error');
+                }
+            }
+        });
+    }
+
+    if (elements.notificationButton) {
+        elements.notificationButton.addEventListener('click', async () => {
+            try {
+                if (Notification.permission === "denied") {
+                    showMessage('Notifications are blocked. Please check your browser settings.', 'error');
+                    return;
+                }
+                
+                if (Notification.permission === "granted") {
+                    elements.notificationButton.textContent = "Notifications Enabled";
+                    elements.notificationButton.classList.add('enabled');
+                    showMessage('Notifications are already enabled', 'success');
+                    return;
+                }
+                
+                const permission = await Notification.requestPermission();
+                if (permission === "granted") {
+                    elements.notificationButton.textContent = "Notifications Enabled";
+                    elements.notificationButton.classList.add('enabled');
+                    showMessage('Notifications enabled successfully', 'success');
+                    
+                    // Send welcome notification
+                    new Notification("Weather App", {
+                        body: "You will be notified of weather updates!",
+                        icon: "images/icon-192.png"
+                    });
+                } else {
+                    showMessage('Please enable notifications in your browser settings', 'error');
+                }
+            } catch (error) {
+                console.error('Notification error:', error);
+                showMessage('Could not enable notifications', 'error');
+            }
+        });
+    }
+
+    // Initialize views
+    document.querySelectorAll('.nav-button').forEach(button => {
+        button.addEventListener('click', () => {
+            const viewId = button.getAttribute('data-view');
+            switchView(viewId);
+        });
+    });
+
+    // Show weather view by default
+    if (elements.weatherView) {
+        elements.weatherView.classList.add('active');
+    }
+
+    // Initialize weather updates
+    startWeatherUpdates();
+
+    // Add event listeners for history filters
+    document.querySelectorAll('.filter-button').forEach(button => {
+        button.addEventListener('click', () => {
+            filterHistory(button.dataset.period);
+        });
     });
 });
 
 // Weather Functions
+function getCurrentPosition() {
+    return new Promise((resolve, reject) => {
+        if (!navigator.geolocation) {
+            reject(new Error('Geolocation is not supported by your browser'));
+            return;
+        }
+        navigator.geolocation.getCurrentPosition(resolve, reject);
+    });
+}
+
+async function updateWeather(coords) {
+    try {
+        elements.statusText.textContent = 'Updating weather...';
+
+        // Simulate API call with random weather data
+        await delay(1000);
+        const weather = getSimulatedWeather();
+
+        // Update UI
+        elements.temperature.textContent = `${weather.temperature}°C`;
+        elements.statusText.textContent = weather.condition;
+
+        // Save to history
+        saveToHistory(weather);
+
+        // Update history display
+        filterHistory(currentHistoryFilter);
+    } catch (error) {
+        console.error('Error updating weather:', error);
+        elements.statusText.textContent = 'Error updating weather';
+        showMessage('Failed to update weather', 'error');
+    }
+}
+
+function getSimulatedWeather() {
+    // More realistic temperature range
+    const hour = new Date().getHours();
+    let baseTemp;
+    
+    // Day/night temperature variation
+    if (hour >= 6 && hour < 12) { // Morning
+        baseTemp = Math.floor(Math.random() * 5) + 15; // 15-20°C
+    } else if (hour >= 12 && hour < 18) { // Afternoon
+        baseTemp = Math.floor(Math.random() * 7) + 20; // 20-27°C
+    } else if (hour >= 18 && hour < 22) { // Evening
+        baseTemp = Math.floor(Math.random() * 5) + 15; // 15-20°C
+    } else { // Night
+        baseTemp = Math.floor(Math.random() * 5) + 10; // 10-15°C
+    }
+    
+    // Conditions based on temperature
+    let conditions;
+    if (baseTemp > 25) {
+        conditions = ['Sunny', 'Clear', 'Hot'];
+    } else if (baseTemp > 20) {
+        conditions = ['Partly Cloudy', 'Sunny', 'Clear', 'Warm'];
+    } else if (baseTemp > 15) {
+        conditions = ['Cloudy', 'Partly Cloudy', 'Light Rain', 'Mild'];
+    } else {
+        conditions = ['Cloudy', 'Light Rain', 'Cool', 'Overcast'];
+    }
+    
+    const condition = conditions[Math.floor(Math.random() * conditions.length)];
+    return { temperature: baseTemp, condition };
+}
+
 async function delay(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
 }
 
-// Simulated weather data for demo
-function getSimulatedWeather() {
-    const temperatures = [15, 17, 19, 21, 23, 25];
-    const conditions = ['clear', 'cloudy', 'rainy', 'sunny'];
-    
-    return {
-        temperature: temperatures[Math.floor(Math.random() * temperatures.length)],
-        condition: conditions[Math.floor(Math.random() * conditions.length)]
-    };
-}
-
-async function updateWeather() {
+// Camera Functions
+async function initCamera() {
     try {
-        elements.loadingSpinner.style.display = 'block';
-        elements.statusText.textContent = 'Updating weather data...';
+        await stopCamera();
         
-        // Get simulated weather data
-        const { temperature, condition } = getSimulatedWeather();
+        // Wait a moment for the camera to be released
+        await delay(500);
         
-        elements.temperature.textContent = `${Math.round(temperature)}°C`;
-        elements.loadingSpinner.style.display = 'none';
-        elements.statusText.textContent = 'Weather data updated';
+        const constraints = {
+            video: {
+                facingMode: { exact: "environment" }, // Arka kamera
+                width: { ideal: 1280 },
+                height: { ideal: 720 }
+            },
+            audio: false
+        };
+
+        console.log('Requesting camera with constraints:', constraints);
+        const stream = await navigator.mediaDevices.getUserMedia(constraints);
+        console.log('Camera stream obtained:', stream);
         
-        // Save to history
-        addToHistory({ temperature, condition });
-        
+        if (elements.cameraFeed) {
+            console.log('Setting camera feed source');
+            elements.cameraFeed.srcObject = stream;
+            await elements.cameraFeed.play();
+            console.log('Camera feed playing');
+            return true;
+        } else {
+            console.error('Camera feed element not found');
+            return false;
+        }
     } catch (error) {
-        console.error('Weather error:', error);
-        elements.loadingSpinner.style.display = 'none';
-        elements.statusText.textContent = 'Failed to update weather';
-        elements.temperature.textContent = '--°C';
-    }
-}
-
-function updateWeatherAnimations(condition) {
-    // Remove all existing weather classes
-    document.body.classList.remove('weather-clear', 'weather-cloudy', 'weather-rainy', 'weather-sunny');
-    
-    // Add new weather class
-    document.body.classList.add(`weather-${condition}`);
-    
-    // Update rain animation visibility
-    const rainElements = document.querySelectorAll('.rain');
-    rainElements.forEach(el => {
-        el.style.display = condition === 'rainy' ? 'block' : 'none';
-    });
-    
-    // Update cloud animation visibility
-    const cloudElements = document.querySelectorAll('.cloud');
-    cloudElements.forEach(el => {
-        el.style.display = ['cloudy', 'rainy'].includes(condition) ? 'block' : 'none';
-    });
-}
-
-// History functionality
-function addToHistory(weatherData) {
-    let history = JSON.parse(localStorage.getItem('weatherHistory') || '[]');
-    
-    // Add new entry with simulated data for different periods
-    const now = new Date();
-    const entry = {
-        temperature: weatherData.temperature,
-        condition: weatherData.condition,
-        timestamp: now.toISOString()
-    };
-    
-    // Add entry for current time
-    history.unshift(entry);
-    
-    // Add some simulated past entries if history is empty
-    if (history.length <= 1) {
-        // Add entries for last week
-        for (let i = 1; i <= 7; i++) {
-            const pastDate = new Date(now);
-            pastDate.setDate(now.getDate() - i);
-            history.push({
-                temperature: Math.floor(Math.random() * 10) + 15,
-                condition: ['clear', 'cloudy', 'rainy', 'sunny'][Math.floor(Math.random() * 4)],
-                timestamp: pastDate.toISOString()
-            });
+        if (error.name === 'OverconstrainedError') {
+            // Arka kamera yoksa ön kamerayı dene
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({
+                    video: {
+                        facingMode: "user",
+                        width: { ideal: 1280 },
+                        height: { ideal: 720 }
+                    },
+                    audio: false
+                });
+                
+                if (elements.cameraFeed) {
+                    elements.cameraFeed.srcObject = stream;
+                    await elements.cameraFeed.play();
+                    return true;
+                }
+                return false;
+            } catch (frontCamError) {
+                console.error('Front camera error:', frontCamError);
+                showMessage('Could not access any camera', 'error');
+                return false;
+            }
         }
-        
-        // Add entries for last month
-        for (let i = 8; i <= 30; i++) {
-            const pastDate = new Date(now);
-            pastDate.setDate(now.getDate() - i);
-            history.push({
-                temperature: Math.floor(Math.random() * 15) + 10,
-                condition: ['clear', 'cloudy', 'rainy', 'sunny'][Math.floor(Math.random() * 4)],
-                timestamp: pastDate.toISOString()
-            });
-        }
+        console.error('Camera initialization error:', error);
+        showMessage('Could not access camera: ' + error.message, 'error');
+        return false;
     }
-    
-    // Keep only last month's data
-    const monthAgo = new Date();
-    monthAgo.setMonth(monthAgo.getMonth() - 1);
-    history = history.filter(item => new Date(item.timestamp) > monthAgo);
-    
-    // Sort by timestamp (newest first)
-    history.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
-    
-    localStorage.setItem('weatherHistory', JSON.stringify(history));
-    updateHistoryDisplay();
 }
 
-function filterHistoryByPeriod(history, period) {
-    const now = new Date();
-    const periodStart = new Date();
-    
-    switch (period) {
-        case '24h':
-            periodStart.setHours(now.getHours() - 24);
-            break;
-        case 'week':
-            periodStart.setDate(now.getDate() - 7);
-            break;
-        case 'month':
-            periodStart.setMonth(now.getMonth() - 1);
-            break;
-    }
-    
-    return history.filter(item => {
-        const itemDate = new Date(item.timestamp);
-        return itemDate > periodStart && itemDate <= now;
-    });
-}
-
-function updateHistoryDisplay() {
-    const history = JSON.parse(localStorage.getItem('weatherHistory') || '[]');
-    const activePeriod = document.querySelector('.filter-button.active').dataset.period;
-    
-    // Filter based on selected period
-    const filteredHistory = filterHistoryByPeriod(history, activePeriod);
-    
-    if (filteredHistory.length === 0) {
-        elements.historyList.innerHTML = '<p class="no-data">No weather data available for this period</p>';
-        return;
-    }
-    
-    elements.historyList.innerHTML = filteredHistory.map(item => `
-        <div class="history-item">
-            <div class="history-time">${formatTimestamp(item.timestamp)}</div>
-            <div class="history-temp">${Math.round(item.temperature)}°C</div>
-            <div class="history-condition">${item.condition}</div>
-        </div>
-    `).join('');
-}
-
-function formatTimestamp(timestamp) {
-    const date = new Date(timestamp);
-    const now = new Date();
-    const isToday = date.toDateString() === now.toDateString();
-    
-    if (isToday) {
-        return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    }
-    
-    return date.toLocaleDateString([], { 
-        month: 'short', 
-        day: 'numeric',
-        hour: '2-digit', 
-        minute: '2-digit'
-    });
-}
-
-// Add event listeners for history filters
-document.querySelectorAll('.filter-button').forEach(button => {
-    button.addEventListener('click', (e) => {
-        document.querySelectorAll('.filter-button').forEach(btn => btn.classList.remove('active'));
-        e.target.classList.add('active');
-        updateHistoryDisplay();
-    });
-});
-
-// Camera functionality
 async function stopCamera() {
     try {
-        if (cameraStream) {
-            const tracks = cameraStream.getTracks();
+        if (elements.cameraFeed && elements.cameraFeed.srcObject) {
+            console.log('Stopping camera stream');
+            const tracks = elements.cameraFeed.srcObject.getTracks();
             tracks.forEach(track => {
+                console.log('Stopping track:', track);
                 track.stop();
             });
-            cameraStream = null;
-        }
-        
-        if (elements.cameraFeed && elements.cameraFeed.srcObject) {
-            const tracks = elements.cameraFeed.srcObject.getTracks();
-            tracks.forEach(track => track.stop());
             elements.cameraFeed.srcObject = null;
+            console.log('Camera stream stopped');
         }
     } catch (error) {
         console.error('Error stopping camera:', error);
     }
 }
 
-async function initCamera() {
-    try {
-        // First, ensure any existing camera stream is properly stopped
-        await stopCamera();
-        
-        // Wait a moment for the camera to be released
-        await new Promise(resolve => setTimeout(resolve, 500));
-        
-        // Request camera access with constraints
-        const stream = await navigator.mediaDevices.getUserMedia({
-            video: {
-                facingMode: 'environment',
-                width: { ideal: 1280 },
-                height: { ideal: 720 }
-            },
-            audio: false
-        });
-        
-        cameraStream = stream;
-        
-        if (elements.cameraFeed) {
-            elements.cameraFeed.srcObject = stream;
-            await new Promise((resolve) => {
-                elements.cameraFeed.onloadedmetadata = () => {
-                    elements.cameraFeed.play()
-                        .then(resolve)
-                        .catch(error => {
-                            console.error('Error playing video:', error);
-                            showMessage('Error starting camera feed', 'error');
-                        });
-                };
-            });
-            return true;
+// Photo Functions
+if (elements.takePhotoButton) {
+    elements.takePhotoButton.addEventListener('click', () => {
+        if (!elements.cameraFeed || !elements.cameraFeed.srcObject) {
+            showMessage('Please enable camera first', 'error');
+            return;
         }
-        return false;
-    } catch (error) {
-        console.error('Camera error:', error);
-        showMessage('Could not access camera: ' + error.message, 'error');
-        return false;
-    }
+        try {
+            takePhoto();
+        } catch (error) {
+            console.error('Error taking photo:', error);
+            showMessage('Failed to take photo: ' + error.message, 'error');
+        }
+    });
 }
 
 function takePhoto() {
@@ -314,21 +317,13 @@ function takePhoto() {
 
     const video = elements.cameraFeed;
     const canvas = document.createElement('canvas');
-    
-    // Set canvas size to match video dimensions
+
     canvas.width = video.videoWidth;
     canvas.height = video.videoHeight;
-    
+
     const context = canvas.getContext('2d');
-    
-    // Flip horizontally if using front camera
-    if (video.style.transform.includes('scaleX(-1)')) {
-        context.scale(-1, 1);
-        context.translate(-canvas.width, 0);
-    }
-    
     context.drawImage(video, 0, 0, canvas.width, canvas.height);
-    
+
     try {
         const imageData = canvas.toDataURL('image/jpeg', 0.8);
         saveToGallery(imageData);
@@ -339,106 +334,34 @@ function takePhoto() {
     }
 }
 
-// Event Listeners for Camera
-if (elements.takePhotoButton) {
-    elements.takePhotoButton.addEventListener('click', () => {
-        if (!elements.cameraFeed.srcObject) {
-            showMessage('Please enable camera first', 'error');
-            return;
-        }
-        takePhoto();
-    });
-}
-
-// Camera button click handler
-if (elements.cameraButton) {
-    elements.cameraButton.addEventListener('click', async () => {
-        if (elements.cameraButton.classList.contains('enabled')) {
-            // If camera is enabled, stop it
-            await stopCamera();
-            elements.cameraButton.classList.remove('enabled');
-            elements.cameraButton.textContent = 'Enable Camera';
-            document.querySelector('.camera-section').style.display = 'none';
-            showMessage('Camera disabled', 'info');
-        } else {
-            // If camera is disabled, start it
-            try {
-                const success = await initCamera();
-                if (success) {
-                    elements.cameraButton.classList.add('enabled');
-                    elements.cameraButton.textContent = 'Camera Enabled';
-                    document.querySelector('.camera-section').style.display = 'block';
-                    showMessage('Camera enabled successfully', 'success');
-                }
-            } catch (error) {
-                console.error('Camera error:', error);
-                showMessage('Camera permission denied', 'error');
-            }
-        }
-    });
-}
-
-// Navigation event listeners with camera handling
-document.querySelectorAll('.nav-button').forEach(button => {
-    button.addEventListener('click', async () => {
-        const viewId = button.dataset.view;
-        
-        // Remove active class from all buttons and views
-        document.querySelectorAll('.nav-button').forEach(btn => btn.classList.remove('active'));
-        document.querySelectorAll('.view').forEach(view => view.classList.remove('active'));
-        
-        // Add active class to clicked button and corresponding view
-        button.classList.add('active');
-        document.getElementById(viewId + '-view').classList.add('active');
-        
-        // Handle camera when switching views
-        if (viewId === 'camera') {
-            if (elements.cameraButton.classList.contains('enabled')) {
-                await initCamera();
-            }
-        } else {
-            await stopCamera();
-        }
-    });
-});
-
-// Photo Gallery Functions
+// Gallery Functions
 function saveToGallery(imageData) {
     let gallery = JSON.parse(localStorage.getItem('photoGallery') || '[]');
-    
-    // Add new photo to the beginning of the gallery
     gallery.unshift({
         id: Date.now(),
-        data: imageData,
+        image: imageData,
         timestamp: new Date().toISOString()
     });
-    
-    // Save to localStorage
     localStorage.setItem('photoGallery', JSON.stringify(gallery));
-    
-    // Update gallery display
     updateGalleryDisplay();
 }
 
 function updateGalleryDisplay() {
     const gallery = JSON.parse(localStorage.getItem('photoGallery') || '[]');
-    const galleryElement = elements.photoGallery;
-    
-    if (!galleryElement) return;
-    
+
+    if (!elements.photoGallery) return;
+
     if (gallery.length === 0) {
-        galleryElement.innerHTML = '<div class="no-photos">No photos yet</div>';
+        elements.photoGallery.innerHTML = '<p class="no-photos">No photos yet</p>';
         return;
     }
-    
-    galleryElement.innerHTML = gallery.map(photo => `
+
+    elements.photoGallery.innerHTML = gallery.map(photo => `
         <div class="photo-item" data-id="${photo.id}">
-            <img src="${photo.data}" alt="Captured photo">
+            <img src="${photo.image}" alt="Captured photo">
             <div class="photo-overlay">
-                <span class="photo-time">${formatTimestamp(photo.timestamp)}</span>
-                <button class="delete-photo" onclick="deletePhoto(${photo.id})">
-                    <i class="fas fa-trash"></i>
-                </button>
+                <button onclick="deletePhoto(${photo.id})" class="delete-photo">Delete</button>
+                <span class="photo-time">${new Date(photo.timestamp).toLocaleString()}</span>
             </div>
         </div>
     `).join('');
@@ -452,98 +375,206 @@ function deletePhoto(photoId) {
     showMessage('Photo deleted', 'success');
 }
 
-// Permission Functions
-async function requestLocationPermission() {
-    try {
-        const position = await new Promise((resolve, reject) => {
-            navigator.geolocation.getCurrentPosition(resolve, reject);
-        });
-        return true;
-    } catch (error) {
-        console.error('Location error:', error);
-        throw error;
-    }
-}
+// History Functions
+let currentHistoryFilter = '24h';
 
-async function requestNotificationPermission() {
-    try {
-        const permission = await Notification.requestPermission();
-        if (permission === 'granted') {
-            return true;
-        }
-        throw new Error('Notification permission denied');
-    } catch (error) {
-        console.error('Notification error:', error);
-        throw error;
-    }
-}
-
-// Message Functions
-function showMessage(message, type = 'info') {
-    elements.statusText.textContent = message;
-    elements.statusText.className = `status-text ${type}`;
+function filterHistory(period) {
+    currentHistoryFilter = period;
+    const history = JSON.parse(localStorage.getItem('weatherHistory') || '[]');
+    const now = new Date();
     
+    let filteredHistory = history.filter(entry => {
+        const entryDate = new Date(entry.timestamp);
+        const diffHours = Math.floor((now - entryDate) / (1000 * 60 * 60));
+        
+        switch (period) {
+            case '24h':
+                return diffHours <= 24;
+            case 'week':
+                return diffHours <= 168; // 7 * 24
+            case 'month':
+                return diffHours <= 720; // 30 * 24
+            default:
+                return true;
+        }
+    });
+    
+    // Simüle edilmiş veriler ekle
+    if (filteredHistory.length < 2) {
+        const simulatedData = generateSimulatedHistory(period);
+        filteredHistory = [...filteredHistory, ...simulatedData];
+    }
+    
+    updateHistoryDisplay(filteredHistory);
+}
+
+function generateSimulatedHistory(period) {
+    const simulatedData = [];
+    const now = new Date();
+    let count;
+    
+    switch (period) {
+        case '24h':
+            count = 24;
+            break;
+        case 'week':
+            count = 7;
+            break;
+        case 'month':
+            count = 30;
+            break;
+        default:
+            count = 24;
+    }
+    
+    for (let i = 1; i <= count; i++) {
+        const timestamp = new Date(now - (i * 3600000)); // Her saat için
+        simulatedData.push({
+            id: Date.now() - i,
+            temperature: Math.floor(Math.random() * 15) + 10,
+            condition: ['Sunny', 'Cloudy', 'Rainy', 'Clear'][Math.floor(Math.random() * 4)],
+            timestamp: timestamp.toISOString()
+        });
+    }
+    
+    return simulatedData;
+}
+
+function saveToHistory(weatherData) {
+    try {
+        let history = JSON.parse(localStorage.getItem('weatherHistory') || '[]');
+        
+        // Add new entry
+        const newEntry = {
+            ...weatherData,
+            id: Date.now(),
+            timestamp: new Date().toISOString()
+        };
+        
+        // Add to beginning of array
+        history.unshift(newEntry);
+        
+        // Keep only last 30 entries for history
+        history = history.slice(0, 30);
+        
+        localStorage.setItem('weatherHistory', JSON.stringify(history));
+        filterHistory(currentHistoryFilter);
+    } catch (error) {
+        console.error('Error saving to history:', error);
+    }
+}
+
+function updateHistoryDisplay(filteredHistory) {
+    const history = filteredHistory;
+    
+    if (!elements.historyList) return;
+    
+    if (history.length === 0) {
+        elements.historyList.innerHTML = '<p class="no-data">No weather history yet</p>';
+        return;
+    }
+    
+    elements.historyList.innerHTML = history.map(entry => `
+        <div class="history-item">
+            <div class="history-info">
+                <span class="history-temp">${entry.temperature}°C</span>
+                <span class="history-condition">${entry.condition}</span>
+            </div>
+            <span class="history-time">${formatDate(entry.timestamp)}</span>
+        </div>
+    `).join('');
+    
+    // Update filter buttons
+    document.querySelectorAll('.filter-button').forEach(button => {
+        button.classList.remove('active');
+        if (button.dataset.period === currentHistoryFilter) {
+            button.classList.add('active');
+        }
+    });
+}
+
+function formatDate(timestamp) {
+    const date = new Date(timestamp);
+    const now = new Date();
+    const diffMs = now - date;
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMs / 3600000);
+    const diffDays = Math.floor(diffMs / 86400000);
+
+    if (diffMins < 1) return 'Just now';
+    if (diffMins < 60) return `${diffMins} minutes ago`;
+    if (diffHours < 24) return `${diffHours} hours ago`;
+    if (diffDays === 1) return 'Yesterday';
+    
+    return date.toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+    });
+}
+
+// View Management
+function switchView(viewId) {
+    // Hide all views
+    document.querySelectorAll('.view').forEach(view => {
+        view.classList.remove('active');
+    });
+
+    // Remove active class from all nav buttons
+    document.querySelectorAll('.nav-button').forEach(button => {
+        button.classList.remove('active');
+    });
+
+    // Show selected view
+    const selectedView = document.getElementById(viewId + '-view');
+    if (selectedView) {
+        selectedView.classList.add('active');
+    }
+
+    // Add active class to selected nav button
+    const selectedButton = document.querySelector(`.nav-button[data-view="${viewId}"]`);
+    if (selectedButton) {
+        selectedButton.classList.add('active');
+    }
+
+    // Handle camera when switching views
+    if (viewId === 'camera') {
+        if (elements.cameraButton.classList.contains('enabled')) {
+            initCamera();
+        }
+    } else {
+        stopCamera();
+    }
+}
+
+// Utility Functions
+function showMessage(message, type = 'info') {
+    const messageContainer = document.getElementById('message-container');
+    if (!messageContainer) return;
+
+    const messageElement = document.createElement('div');
+    messageElement.className = `message ${type}`;
+    messageElement.textContent = message;
+
+    messageContainer.appendChild(messageElement);
+
     setTimeout(() => {
-        elements.statusText.textContent = '';
-        elements.statusText.className = 'status-text';
+        messageElement.remove();
     }, 3000);
 }
 
-// Event Listeners
-elements.locationButton.addEventListener('click', async () => {
-    try {
-        await requestLocationPermission();
-        elements.locationButton.classList.add('enabled');
-        elements.locationButton.textContent = 'Location Enabled';
-        updateWeather();
-        showMessage('Location enabled successfully', 'success');
-    } catch (error) {
-        showMessage('Location permission denied', 'error');
-    }
-});
-
-elements.notificationButton.addEventListener('click', async () => {
-    try {
-        await requestNotificationPermission();
-        elements.notificationButton.classList.add('enabled');
-        elements.notificationButton.textContent = 'Notifications Enabled';
-        showMessage('Notifications enabled successfully', 'success');
-    } catch (error) {
-        showMessage('Notification permission denied', 'error');
-    }
-});
-
-// Initialize app on load
-window.addEventListener('load', () => {
-    // Start weather updates
-    updateWeather();
-    weatherUpdateTimer = setInterval(updateWeather, WEATHER_UPDATE_INTERVAL);
-    
-    // Check existing permissions
-    Promise.all([
-        navigator.permissions.query({ name: 'geolocation' }),
-        navigator.permissions.query({ name: 'camera' })
-    ]).then(([geoResult, camResult]) => {
-        // Location
-        if (geoResult.state === 'granted') {
-            elements.locationButton.classList.add('enabled');
-            elements.locationButton.textContent = 'Location Enabled';
-            updateWeather();
+// Start weather updates
+function startWeatherUpdates() {
+    // Update weather every 5 minutes
+    setInterval(() => {
+        if (elements.locationButton.classList.contains('enabled')) {
+            getCurrentPosition()
+                .then(position => updateWeather(position.coords))
+                .catch(error => console.error('Weather update failed:', error));
         }
-        
-        // Camera
-        if (camResult.state === 'granted') {
-            elements.cameraButton.classList.add('enabled');
-            elements.cameraButton.textContent = 'Camera Enabled';
-        }
-        
-        // Notifications
-        if (Notification.permission === 'granted') {
-            elements.notificationButton.classList.add('enabled');
-            elements.notificationButton.textContent = 'Notifications Enabled';
-        }
-    }).catch(console.error);
-});
+    }, 5 * 60 * 1000);
+}
 
-// Cleanup on page unload
-window.addEventListener('unload', stopCamera);
+// Initialize history display
+filterHistory('24h');
