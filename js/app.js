@@ -28,6 +28,7 @@ const state = {
 const WEATHER_API = {
     key: 'cipJIPBjkoIWPy92BhaWjwKZyprvnglK',
     baseUrl: 'https://api.tomorrow.io/v4/weather/realtime',
+    proxyUrl: 'https://cors-anywhere.herokuapp.com/',
     updateInterval: 60 * 1000 // 1 minute
 };
 
@@ -341,9 +342,20 @@ async function getWeatherData() {
         
         const { latitude, longitude } = state.location;
         const fields = ['temperature', 'cloudCover', 'precipitationProbability'];
-        const url = `${WEATHER_API.baseUrl}?location=${latitude},${longitude}&fields=${fields.join(',')}&apikey=${WEATHER_API.key}&units=metric`;
+        const apiUrl = `${WEATHER_API.baseUrl}?location=${latitude},${longitude}&fields=${fields.join(',')}&apikey=${WEATHER_API.key}&units=metric`;
         
-        const response = await fetch(url);
+        // Use proxy only on GitHub Pages
+        const isGitHubPages = location.hostname.includes('github.io');
+        const url = isGitHubPages ? WEATHER_API.proxyUrl + apiUrl : apiUrl;
+        
+        const response = await fetch(url, {
+            method: 'GET',
+            headers: {
+                'Accept': 'application/json',
+                'Content-Type': 'application/json',
+                'Origin': window.location.origin
+            }
+        });
         
         if (!response.ok) {
             throw new Error('Weather API error: ' + response.statusText);
