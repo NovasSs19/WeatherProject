@@ -187,7 +187,7 @@ main {
     width: 100%;
     height: auto;
     display: block;
-    transform: scaleX(-1);
+    transform: scaleX(-1); /* Mirror effect for front camera */
 }
 
 .capture-button {

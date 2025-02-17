@@ -250,7 +250,6 @@ async function stopCamera() {
             const tracks = cameraStream.getTracks();
             tracks.forEach(track => {
                 track.stop();
-                cameraStream.removeTrack(track);
             });
             cameraStream = null;
         }
@@ -274,16 +273,15 @@ async function initCamera() {
         await new Promise(resolve => setTimeout(resolve, 500));
         
         // Request camera access with constraints
-        const constraints = {
+        const stream = await navigator.mediaDevices.getUserMedia({
             video: {
                 facingMode: 'environment',
                 width: { ideal: 1280 },
                 height: { ideal: 720 }
             },
             audio: false
-        };
+        });
         
-        const stream = await navigator.mediaDevices.getUserMedia(constraints);
         cameraStream = stream;
         
         if (elements.cameraFeed) {
@@ -306,6 +304,50 @@ async function initCamera() {
         showMessage('Could not access camera: ' + error.message, 'error');
         return false;
     }
+}
+
+function takePhoto() {
+    if (!elements.cameraFeed || !elements.cameraFeed.srcObject) {
+        showMessage('Camera not initialized', 'error');
+        return;
+    }
+
+    const video = elements.cameraFeed;
+    const canvas = document.createElement('canvas');
+    
+    // Set canvas size to match video dimensions
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    
+    const context = canvas.getContext('2d');
+    
+    // Flip horizontally if using front camera
+    if (video.style.transform.includes('scaleX(-1)')) {
+        context.scale(-1, 1);
+        context.translate(-canvas.width, 0);
+    }
+    
+    context.drawImage(video, 0, 0, canvas.width, canvas.height);
+    
+    try {
+        const imageData = canvas.toDataURL('image/jpeg', 0.8);
+        saveToGallery(imageData);
+        showMessage('Photo captured!', 'success');
+    } catch (error) {
+        console.error('Photo capture error:', error);
+        showMessage('Failed to capture photo', 'error');
+    }
+}
+
+// Event Listeners for Camera
+if (elements.takePhotoButton) {
+    elements.takePhotoButton.addEventListener('click', () => {
+        if (!elements.cameraFeed.srcObject) {
+            showMessage('Please enable camera first', 'error');
+            return;
+        }
+        takePhoto();
+    });
 }
 
 // Camera button click handler
@@ -336,43 +378,67 @@ if (elements.cameraButton) {
     });
 }
 
-// Event Listeners for Camera
-if (elements.takePhotoButton) {
-    elements.takePhotoButton.addEventListener('click', () => {
-        if (!elements.cameraFeed.srcObject) {
-            showMessage('Please enable camera first', 'error');
-            return;
+// Navigation event listeners with camera handling
+document.querySelectorAll('.nav-button').forEach(button => {
+    button.addEventListener('click', async () => {
+        const viewId = button.dataset.view;
+        
+        // Remove active class from all buttons and views
+        document.querySelectorAll('.nav-button').forEach(btn => btn.classList.remove('active'));
+        document.querySelectorAll('.view').forEach(view => view.classList.remove('active'));
+        
+        // Add active class to clicked button and corresponding view
+        button.classList.add('active');
+        document.getElementById(viewId + '-view').classList.add('active');
+        
+        // Handle camera when switching views
+        if (viewId === 'camera') {
+            if (elements.cameraButton.classList.contains('enabled')) {
+                await initCamera();
+            }
+        } else {
+            await stopCamera();
         }
-        takePhoto();
     });
-}
+});
 
-// Save photo to gallery
+// Photo Gallery Functions
 function saveToGallery(imageData) {
     let gallery = JSON.parse(localStorage.getItem('photoGallery') || '[]');
+    
+    // Add new photo to the beginning of the gallery
     gallery.unshift({
         id: Date.now(),
-        image: imageData,
+        data: imageData,
         timestamp: new Date().toISOString()
     });
+    
+    // Save to localStorage
     localStorage.setItem('photoGallery', JSON.stringify(gallery));
-    updateGallery();
+    
+    // Update gallery display
+    updateGalleryDisplay();
 }
 
-function updateGallery() {
+function updateGalleryDisplay() {
     const gallery = JSON.parse(localStorage.getItem('photoGallery') || '[]');
+    const galleryElement = elements.photoGallery;
+    
+    if (!galleryElement) return;
     
     if (gallery.length === 0) {
-        elements.photoGallery.innerHTML = '<p class="no-photos">No photos yet</p>';
+        galleryElement.innerHTML = '<div class="no-photos">No photos yet</div>';
         return;
     }
     
-    elements.photoGallery.innerHTML = gallery.map(photo => `
+    galleryElement.innerHTML = gallery.map(photo => `
         <div class="photo-item" data-id="${photo.id}">
-            <img src="${photo.image}" alt="Captured photo">
+            <img src="${photo.data}" alt="Captured photo">
             <div class="photo-overlay">
-                <button onclick="deletePhoto(${photo.id})" class="delete-photo">Delete</button>
-                <span class="photo-time">${new Date(photo.timestamp).toLocaleString()}</span>
+                <span class="photo-time">${formatTimestamp(photo.timestamp)}</span>
+                <button class="delete-photo" onclick="deletePhoto(${photo.id})">
+                    <i class="fas fa-trash"></i>
+                </button>
             </div>
         </div>
     `).join('');
@@ -382,7 +448,7 @@ function deletePhoto(photoId) {
     let gallery = JSON.parse(localStorage.getItem('photoGallery') || '[]');
     gallery = gallery.filter(photo => photo.id !== photoId);
     localStorage.setItem('photoGallery', JSON.stringify(gallery));
-    updateGallery();
+    updateGalleryDisplay();
     showMessage('Photo deleted', 'success');
 }
 

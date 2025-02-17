@@ -4,13 +4,13 @@ const STATIC_CACHE_NAME = 'weather-static-cache-v1';
 const IMAGE_CACHE_NAME = 'weather-image-cache-v1';
 
 const ASSETS_TO_CACHE = [
-    '/',
-    '/index.html',
-    '/css/style.css',
-    '/js/app.js',
-    '/manifest.json',
-    '/images/icon-192.png',
-    '/images/icon-512.png'
+    './',
+    './index.html',
+    './css/style.css',
+    './js/app.js',
+    './manifest.json',
+    './images/icon-192.png',
+    './images/icon-512.png'
 ];
 
 // Install event - cache assets
@@ -25,6 +25,8 @@ self.addEventListener('install', (event) => {
                 console.error('Cache installation failed:', error);
             })
     );
+    // Activate worker immediately
+    self.skipWaiting();
 });
 
 // Activate event - clean up old caches
@@ -41,6 +43,8 @@ self.addEventListener('activate', (event) => {
             );
         })
     );
+    // Claim all clients immediately
+    event.waitUntil(self.clients.claim());
 });
 
 // Helper function to check if URL is an API request
@@ -169,7 +173,8 @@ self.addEventListener('fetch', (event) => {
             })
             .catch((error) => {
                 console.error('Fetch failed:', error);
-                // You could return a custom offline page here
+                // Return offline fallback
+                return caches.match('./index.html');
             })
     );
 });
